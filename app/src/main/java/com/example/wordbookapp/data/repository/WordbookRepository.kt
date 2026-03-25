@@ -73,6 +73,10 @@ class WordbookRepository(
     }
 
     suspend fun ensureSeeded() = withContext(Dispatchers.IO) {
+        if (appSettingDao.getValue(SEED_KEY) == SEEDED_VALUE) {
+            return@withContext
+        }
+
         val now = System.currentTimeMillis()
         val deckIds = mutableMapOf<String, Long>()
         DEFAULT_DECKS.forEachIndexed { index, deck ->
@@ -610,7 +614,7 @@ class WordbookRepository(
 
     private companion object {
         private const val AI_DECK_SIZE = 30
-        private const val SEED_KEY = "seed_v2"
+        private const val SEED_KEY = "seed_v6"
         private const val SEEDED_VALUE = "done"
         private const val THEME_PRESET_KEY = "theme_preset"
         private val APP_ZONE_ID: ZoneId = ZoneId.of("Asia/Seoul")
