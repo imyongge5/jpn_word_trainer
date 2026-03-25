@@ -20,6 +20,9 @@ interface DeckDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertDeckWordCrossRef(crossRef: DeckWordCrossRef)
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertDeckWordCrossRefs(crossRefs: List<DeckWordCrossRef>)
+
     @Query(
         """
         SELECT d.id, d.name, d.description, d.type, d.sourceTag, d.displayOrder, d.createdAt,
