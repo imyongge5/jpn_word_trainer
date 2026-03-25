@@ -1140,7 +1140,7 @@ private fun LinkedJapaneseText(
     }
 
     FlowRow(
-        horizontalArrangement = Arrangement.spacedBy(2.dp),
+        horizontalArrangement = Arrangement.spacedBy(0.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         segments.forEach { segment ->
@@ -1186,7 +1186,6 @@ private fun buildLinkedSegments(
     if (text.isBlank()) return emptyList()
 
     val candidates = allWords
-        .filter { it.id != currentWordId }
         .flatMap { word ->
             buildList {
                 val kanji = word.kanji.trim()
@@ -1196,7 +1195,10 @@ private fun buildLinkedSegments(
             }
         }
         .distinctBy { it.first to it.second.id }
-        .sortedByDescending { it.first.length }
+        .sortedWith(
+            compareByDescending<Pair<String, WordEntity>> { it.first.length }
+                .thenByDescending { it.second.id == currentWordId }
+        )
 
     val segments = mutableListOf<LinkedSegment>()
     var index = 0
