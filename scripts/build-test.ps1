@@ -1,6 +1,7 @@
 param(
     [string]$GradleTask = "assembleDebug",
     [switch]$SkipInstall,
+    [switch]$SkipFigma,
     [string]$PackageName = "com.example.wordbookapp",
     [string]$LaunchActivity = ".MainActivity"
 )
@@ -10,6 +11,8 @@ $ErrorActionPreference = "Stop"
 $projectRoot = Split-Path -Parent $PSScriptRoot
 $javaHome = "<ANDROID_JBR>"
 $sdkRoot = "<ANDROID_SDK>"
+$figmaFileUrl = "https://www.figma.com/design/XNcUCPgnIv2wLvFG1HtC4M/%EB%8B%A8%EC%96%B4%EC%9E%A5-%EC%95%B1-UI?t=63R42XsdSANQAEzj-0"
+$figmaMappingPath = Join-Path $projectRoot "docs\FIGMA_MAPPING.md"
 
 if (-not (Test-Path (Join-Path $projectRoot "gradlew.bat"))) {
     throw "gradlew.bat not found in $projectRoot"
@@ -41,6 +44,14 @@ try {
     & ".\gradlew.bat" $GradleTask
     if ($LASTEXITCODE -ne 0) {
         throw "Gradle task failed with exit code $LASTEXITCODE"
+    }
+
+    if (-not $SkipFigma.IsPresent) {
+        Write-Host "Opening mapped Figma file"
+        Start-Process $figmaFileUrl
+        if (Test-Path $figmaMappingPath) {
+            Write-Host "Figma mapping: $figmaMappingPath"
+        }
     }
 
     $shouldInstall = -not $SkipInstall.IsPresent -and $GradleTask -eq "assembleDebug"
