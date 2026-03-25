@@ -56,6 +56,13 @@ data class WordDetailUiState(
     val saveToDeckSuccess: Boolean = false,
 )
 
+data class AllWordsUiState(
+    val isLoading: Boolean = true,
+    val words: List<WordEntity> = emptyList(),
+    val decks: List<DeckWithCount> = emptyList(),
+    val deckWordIds: Map<Long, Set<Long>> = emptyMap(),
+)
+
 sealed interface StartExamTarget {
     data class Deck(val deck: DeckWithCount) : StartExamTarget
     data object AiDeck : StartExamTarget

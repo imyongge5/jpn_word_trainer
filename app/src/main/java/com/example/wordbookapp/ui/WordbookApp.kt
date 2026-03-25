@@ -123,6 +123,17 @@ fun WordbookApp(
                     onOpenDeck = { deckId -> navController.navigate("deck/$deckId") },
                     onOpenAiDeck = { navController.navigate("exam_setup?ai=true") },
                     onDeckCreated = { deckId -> navController.navigate("deck/$deckId") },
+                    onOpenAllWords = { navController.navigate("all_words") },
+                )
+            }
+            composable("all_words") {
+                val viewModel: AllWordsViewModel = viewModel(
+                    factory = WordbookViewModelFactory { AllWordsViewModel(repository) },
+                )
+                AllWordsRoute(
+                    viewModel = viewModel,
+                    onBack = { navController.popBackStack() },
+                    onOpenWord = { wordId -> navController.navigate("word/$wordId?deckId=-1") },
                 )
             }
             composable(
@@ -266,6 +277,7 @@ private fun HomeRoute(
     onOpenDeck: (Long) -> Unit,
     onOpenAiDeck: () -> Unit,
     onDeckCreated: (Long) -> Unit,
+    onOpenAllWords: () -> Unit,
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var showDialog by remember { mutableStateOf(false) }
@@ -326,6 +338,7 @@ private fun HomeRoute(
                     recentSessionCount = data.recentSessions.size,
                     onCreateCustomDeck = { showDialog = true },
                     onOpenAiDeck = onOpenAiDeck,
+                    onOpenAllWords = onOpenAllWords,
                 )
             }
             item {
@@ -512,6 +525,174 @@ private fun DeckRoute(
                 HorizontalDivider()
                 if (uiState.words.isEmpty()) {
                     EmptyHint("이 단어장에는 아직 단어가 없어요.")
+                } else if (filteredWords.isEmpty()) {
+                    EmptyHint("조건에 맞는 단어가 없어요.")
+                } else {
+                    LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        items(filteredWords) { word ->
+                            WordRow(
+                                word = word,
+                                showReadingKo = showReadingKo,
+                                showMeaningJa = showMeaningJa,
+                                allWords = filteredWords,
+                                onClick = { onOpenWord(word.id) },
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AllWordsRoute(
+    viewModel: AllWordsViewModel,
+    onBack: () -> Unit,
+    onOpenWord: (Long) -> Unit,
+) {
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val scope = rememberCoroutineScope()
+    val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
+    var showReadingKo by rememberSaveable { mutableStateOf(false) }
+    var showMeaningJa by rememberSaveable { mutableStateOf(false) }
+    var searchQuery by rememberSaveable { mutableStateOf("") }
+    var selectedDeckId by rememberSaveable { mutableStateOf(-1L) }
+    var selectedPartOfSpeech by rememberSaveable { mutableStateOf("전체") }
+    var selectedTag by rememberSaveable { mutableStateOf("전체") }
+
+    val deckOptions = remember(uiState.decks) {
+        listOf(-1L to "전체 단어장") + uiState.decks.map { it.id to it.name }
+    }
+    val deckFilteredWords = remember(uiState.words, uiState.deckWordIds, selectedDeckId) {
+        if (selectedDeckId <= 0L) {
+            uiState.words
+        } else {
+            val allowedIds = uiState.deckWordIds[selectedDeckId].orEmpty()
+            uiState.words.filter { it.id in allowedIds }
+        }
+    }
+    val partOfSpeechOptions = remember(deckFilteredWords) {
+        listOf("전체") + deckFilteredWords.map { it.partOfSpeech.trim() }
+            .filter { it.isNotBlank() }
+            .distinct()
+            .sorted()
+    }
+    val tagOptions = remember(deckFilteredWords) {
+        listOf("전체") + deckFilteredWords.map { it.tag.trim() }
+            .filter { it.isNotBlank() }
+            .distinct()
+            .sorted()
+    }
+    val filteredWords by remember(
+        deckFilteredWords,
+        searchQuery,
+        selectedPartOfSpeech,
+        selectedTag,
+    ) {
+        derivedStateOf {
+            deckFilteredWords.filter { word ->
+                val matchesQuery = searchQuery.isBlank() || word.matchesSearchQuery(searchQuery)
+                val matchesPartOfSpeech = selectedPartOfSpeech == "전체" || word.partOfSpeech == selectedPartOfSpeech
+                val matchesTag = selectedTag == "전체" || word.tag == selectedTag
+                matchesQuery && matchesPartOfSpeech && matchesTag
+            }
+        }
+    }
+
+    ModalNavigationDrawer(
+        drawerState = drawerState,
+        drawerContent = {
+            ModalDrawerSheet {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                ) {
+                    Text("필터", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                    OutlinedButton(
+                        onClick = {
+                            selectedDeckId = -1L
+                            selectedPartOfSpeech = "전체"
+                            selectedTag = "전체"
+                        },
+                    ) {
+                        Text("필터 초기화")
+                    }
+                    FilterChipIdRow(
+                        title = "단어장",
+                        options = deckOptions,
+                        selected = selectedDeckId,
+                        onSelect = { selectedDeckId = it },
+                    )
+                    FilterChipRow(
+                        title = "품사",
+                        options = partOfSpeechOptions,
+                        selected = selectedPartOfSpeech,
+                        onSelect = { selectedPartOfSpeech = it },
+                    )
+                    FilterChipRow(
+                        title = "태그",
+                        options = tagOptions,
+                        selected = selectedTag,
+                        onSelect = { selectedTag = it },
+                    )
+                }
+            }
+        },
+    ) {
+        ScreenContainer(
+            title = "모든 단어",
+            onBack = onBack,
+        ) {
+            if (uiState.isLoading) {
+                LoadingView()
+                return@ScreenContainer
+            }
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(
+                        onClick = { showReadingKo = !showReadingKo },
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+                    ) {
+                        Text(if (showReadingKo) "한국어 읽기 숨기기" else "한국어 읽기 보기")
+                    }
+                    OutlinedButton(
+                        onClick = { showMeaningJa = !showMeaningJa },
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+                    ) {
+                        Text(if (showMeaningJa) "뜻을 한국어로" else "뜻을 일본어로")
+                    }
+                    OutlinedButton(
+                        onClick = { scope.launch { drawerState.open() } },
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+                    ) {
+                        Text("필터")
+                    }
+                }
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("전체 단어 검색") },
+                    placeholder = { Text("한자, 읽기, 뜻, 태그로 찾기") },
+                    singleLine = true,
+                )
+                Text(
+                    text = buildAllWordsFilterSummary(
+                        filteredCount = filteredWords.size,
+                        totalCount = uiState.words.size,
+                        selectedDeckName = deckOptions.firstOrNull { it.first == selectedDeckId }?.second ?: "전체 단어장",
+                        selectedPartOfSpeech = selectedPartOfSpeech,
+                        selectedTag = selectedTag,
+                    ),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = InkMuted,
+                )
+                HorizontalDivider()
+                if (uiState.words.isEmpty()) {
+                    EmptyHint("등록된 단어가 아직 없어요.")
                 } else if (filteredWords.isEmpty()) {
                     EmptyHint("조건에 맞는 단어가 없어요.")
                 } else {
@@ -1035,6 +1216,7 @@ private fun SummaryCard(
     recentSessionCount: Int,
     onCreateCustomDeck: () -> Unit,
     onOpenAiDeck: () -> Unit,
+    onOpenAllWords: () -> Unit,
 ) {
     Card {
         Box(
@@ -1069,6 +1251,10 @@ private fun SummaryCard(
                         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
                     ) { Text("AI 단어장") }
                 }
+                OutlinedButton(
+                    onClick = onOpenAllWords,
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+                ) { Text("모든 단어 보기") }
             }
             Box(
                 modifier = Modifier
@@ -1665,6 +1851,31 @@ private fun FilterChipRow(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun FilterChipIdRow(
+    title: String,
+    options: List<Pair<Long, String>>,
+    selected: Long,
+    onSelect: (Long) -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(title, style = MaterialTheme.typography.labelLarge, color = InkMuted)
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            options.forEach { (id, label) ->
+                FilterChip(
+                    selected = selected == id,
+                    onClick = { onSelect(id) },
+                    label = { Text(label) },
+                )
+            }
+        }
+    }
+}
+
 private fun buildFilterSummary(
     filteredCount: Int,
     totalCount: Int,
@@ -1672,6 +1883,25 @@ private fun buildFilterSummary(
     selectedTag: String,
 ): String {
     val filters = buildList {
+        if (selectedPartOfSpeech != "전체") add("품사 $selectedPartOfSpeech")
+        if (selectedTag != "전체") add("태그 $selectedTag")
+    }
+    return if (filters.isEmpty()) {
+        "표시 $filteredCount / 전체 $totalCount"
+    } else {
+        "표시 $filteredCount / 전체 $totalCount · ${filters.joinToString(" · ")}"
+    }
+}
+
+private fun buildAllWordsFilterSummary(
+    filteredCount: Int,
+    totalCount: Int,
+    selectedDeckName: String,
+    selectedPartOfSpeech: String,
+    selectedTag: String,
+): String {
+    val filters = buildList {
+        if (selectedDeckName != "전체 단어장") add("단어장 $selectedDeckName")
         if (selectedPartOfSpeech != "전체") add("품사 $selectedPartOfSpeech")
         if (selectedTag != "전체") add("태그 $selectedTag")
     }

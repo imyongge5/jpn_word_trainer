@@ -142,6 +142,14 @@ class WordbookRepository(
         DeckDetailData(deck = deck, words = words)
     }
 
+    suspend fun getAllDecks(): List<com.example.wordbookapp.data.model.DeckWithCount> = withContext(Dispatchers.IO) {
+        deckDao.getDecks()
+    }
+
+    suspend fun getAllWords(): List<WordEntity> = withContext(Dispatchers.IO) {
+        wordDao.getAllWordsByNewest()
+    }
+
     suspend fun addWordToDeck(deckId: Long, draft: WordDraft): Long = withContext(Dispatchers.IO) {
         val now = System.currentTimeMillis()
         val wordId = wordDao.insertWord(

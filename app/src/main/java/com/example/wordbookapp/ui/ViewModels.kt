@@ -36,6 +36,30 @@ class HomeViewModel(
     suspend fun createCustomDeck(name: String): Long = repository.createCustomDeck(name)
 }
 
+class AllWordsViewModel(
+    private val repository: WordbookRepository,
+) : ViewModel() {
+    private val _uiState = MutableStateFlow(AllWordsUiState())
+    val uiState: StateFlow<AllWordsUiState> = _uiState
+
+    init {
+        viewModelScope.launch {
+            repository.ensureSeeded()
+            val decks = repository.getAllDecks()
+            val words = repository.getAllWords()
+            val deckWordIds = decks.associate { deck ->
+                deck.id to repository.getDeckDetail(deck.id).words.map { it.id }.toSet()
+            }
+            _uiState.value = AllWordsUiState(
+                isLoading = false,
+                words = words,
+                decks = decks,
+                deckWordIds = deckWordIds,
+            )
+        }
+    }
+}
+
 class DeckDetailViewModel(
     private val repository: WordbookRepository,
     private val deckId: Long,
