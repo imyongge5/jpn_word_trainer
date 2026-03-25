@@ -28,8 +28,10 @@ import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DrawerValue
+import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -68,7 +70,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Edit
+import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.activity.compose.BackHandler
@@ -441,6 +445,16 @@ private fun DeckRoute(
                             selected = selectedTag,
                             onSelect = { selectedTag = it },
                         )
+                        OptionCheckboxRow(
+                            label = "한국어 읽기 보기",
+                            checked = showReadingKo,
+                            onCheckedChange = { showReadingKo = it },
+                        )
+                        OptionCheckboxRow(
+                            label = "뜻을 일본어로 보기",
+                            checked = showMeaningJa,
+                            onCheckedChange = { showMeaningJa = it },
+                        )
                     }
                 }
             }
@@ -474,35 +488,21 @@ private fun DeckRoute(
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(deck.description, style = MaterialTheme.typography.bodyMedium)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(
-                    onClick = onAddWord,
-                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp),
-                ) { Text("단어 추가") }
-                Button(
-                    onClick = onStartExam,
-                    enabled = uiState.words.isNotEmpty(),
-                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp),
-                ) { Text("시험 시작") }
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(
-                    onClick = { showReadingKo = !showReadingKo },
-                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
-                ) {
-                    Text(if (showReadingKo) "한국어 읽기 숨기기" else "한국어 읽기 보기")
-                }
-                OutlinedButton(
-                    onClick = { showMeaningJa = !showMeaningJa },
-                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
-                ) {
-                    Text(if (showMeaningJa) "뜻을 한국어로" else "뜻을 일본어로")
-                }
-                OutlinedButton(
-                    onClick = { scope.launch { drawerState.open() } },
-                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
-                ) {
-                    Text("필터")
-                }
+                    FilledTonalIconButton(onClick = onAddWord) {
+                        Icon(Icons.Outlined.Add, contentDescription = "단어 추가")
+                    }
+                    FilledTonalIconButton(
+                        onClick = onStartExam,
+                        enabled = uiState.words.isNotEmpty(),
+                    ) {
+                        Icon(Icons.Outlined.PlayArrow, contentDescription = "시험 시작")
+                    }
+                    OutlinedButton(
+                        onClick = { scope.launch { drawerState.open() } },
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+                    ) {
+                        Text("필터")
+                    }
                 }
                 OutlinedTextField(
                     value = searchQuery,
@@ -638,6 +638,16 @@ private fun AllWordsRoute(
                         selected = selectedTag,
                         onSelect = { selectedTag = it },
                     )
+                    OptionCheckboxRow(
+                        label = "한국어 읽기 보기",
+                        checked = showReadingKo,
+                        onCheckedChange = { showReadingKo = it },
+                    )
+                    OptionCheckboxRow(
+                        label = "뜻을 일본어로 보기",
+                        checked = showMeaningJa,
+                        onCheckedChange = { showMeaningJa = it },
+                    )
                 }
             }
         },
@@ -652,18 +662,6 @@ private fun AllWordsRoute(
             }
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedButton(
-                        onClick = { showReadingKo = !showReadingKo },
-                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
-                    ) {
-                        Text(if (showReadingKo) "한국어 읽기 숨기기" else "한국어 읽기 보기")
-                    }
-                    OutlinedButton(
-                        onClick = { showMeaningJa = !showMeaningJa },
-                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
-                    ) {
-                        Text(if (showMeaningJa) "뜻을 한국어로" else "뜻을 일본어로")
-                    }
                     OutlinedButton(
                         onClick = { scope.launch { drawerState.open() } },
                         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
@@ -1873,6 +1871,27 @@ private fun FilterChipIdRow(
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun OptionCheckboxRow(
+    label: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onCheckedChange(!checked) },
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Text(label, style = MaterialTheme.typography.bodyMedium)
+        Checkbox(
+            checked = checked,
+            onCheckedChange = onCheckedChange,
+        )
     }
 }
 
