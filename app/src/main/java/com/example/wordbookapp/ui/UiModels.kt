@@ -8,6 +8,7 @@ import com.example.wordbookapp.data.model.DeckStatsData
 import com.example.wordbookapp.data.model.ExamSessionData
 import com.example.wordbookapp.data.model.ExamSettings
 import com.example.wordbookapp.data.model.HomeData
+import com.example.wordbookapp.data.model.InProgressExamData
 import com.example.wordbookapp.data.model.SessionResult
 import com.example.wordbookapp.data.model.WordDetailData
 import com.example.wordbookapp.data.model.WordDraft
@@ -39,6 +40,7 @@ data class ExamSetupUiState(
     val settings: ExamSettings = ExamSettings(),
     val isAiDeck: Boolean = false,
     val canStart: Boolean = false,
+    val inProgressExam: InProgressExamData? = null,
 )
 
 data class ExamUiState(

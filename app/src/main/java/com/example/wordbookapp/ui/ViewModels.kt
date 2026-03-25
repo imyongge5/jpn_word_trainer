@@ -158,12 +158,14 @@ class ExamSetupViewModel(
     init {
         viewModelScope.launch {
             val detail = deckId?.let { repository.getDeckDetail(it) }
+            val inProgressExam = repository.getInProgressExamData(deckId = deckId, isAiDeck = isAiDeck)
             _uiState.value = ExamSetupUiState(
                 isLoading = false,
                 deck = detail?.deck,
                 settings = ExamSettings(),
                 isAiDeck = isAiDeck,
                 canStart = isAiDeck || !detail?.words.isNullOrEmpty(),
+                inProgressExam = inProgressExam,
             )
         }
     }
@@ -191,6 +193,8 @@ class ExamSetupViewModel(
         settings = _uiState.value.settings,
         useAiSelection = isAiDeck,
     )
+
+    fun getInProgressSessionId(): Long? = _uiState.value.inProgressExam?.sessionId
 }
 
 class ExamViewModel(

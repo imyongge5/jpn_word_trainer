@@ -29,6 +29,7 @@ import com.example.wordbookapp.data.model.DeckType
 import com.example.wordbookapp.data.model.ExamSessionData
 import com.example.wordbookapp.data.model.ExamSettings
 import com.example.wordbookapp.data.model.HomeData
+import com.example.wordbookapp.data.model.InProgressExamData
 import com.example.wordbookapp.data.model.SessionResult
 import com.example.wordbookapp.data.model.SessionSummary
 import com.example.wordbookapp.data.model.ThemePreset
@@ -286,6 +287,26 @@ class WordbookRepository(
                 startedAt = System.currentTimeMillis(),
                 completedAt = null,
             ),
+        )
+    }
+
+    suspend fun getInProgressExamData(
+        deckId: Long?,
+        isAiDeck: Boolean,
+    ): InProgressExamData? = withContext(Dispatchers.IO) {
+        val session = when {
+            isAiDeck -> studyDao.getInProgressAiSession()
+            deckId != null -> studyDao.getInProgressSessionForDeck(deckId)
+            else -> null
+        } ?: return@withContext null
+
+        val answers = studyDao.getAnswersForSession(session.id)
+        InProgressExamData(
+            sessionId = session.id,
+            deckName = session.deckName,
+            answeredCount = answers.size,
+            totalCount = parseWordIds(session.wordIdsSerialized).size,
+            startedAt = session.startedAt,
         )
     }
 

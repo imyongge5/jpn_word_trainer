@@ -73,6 +73,14 @@ data class ExamSessionData(
     val answersCount: Int,
 )
 
+data class InProgressExamData(
+    val sessionId: Long,
+    val deckName: String,
+    val answeredCount: Int,
+    val totalCount: Int,
+    val startedAt: Long,
+)
+
 data class SessionSummary(
     val sessionId: Long,
     val deckName: String,

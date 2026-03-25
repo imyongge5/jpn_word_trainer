@@ -18,6 +18,26 @@ interface StudyDao {
     @Query("SELECT * FROM study_sessions WHERE id = :sessionId LIMIT 1")
     suspend fun getSessionById(sessionId: Long): StudySessionEntity?
 
+    @Query(
+        """
+        SELECT * FROM study_sessions
+        WHERE deckId = :deckId AND completedAt IS NULL
+        ORDER BY startedAt DESC
+        LIMIT 1
+        """,
+    )
+    suspend fun getInProgressSessionForDeck(deckId: Long): StudySessionEntity?
+
+    @Query(
+        """
+        SELECT * FROM study_sessions
+        WHERE isAiDeck = 1 AND completedAt IS NULL
+        ORDER BY startedAt DESC
+        LIMIT 1
+        """,
+    )
+    suspend fun getInProgressAiSession(): StudySessionEntity?
+
     @Query("SELECT * FROM study_answers WHERE sessionId = :sessionId ORDER BY sequenceIndex ASC")
     suspend fun getAnswersForSession(sessionId: Long): List<StudyAnswerEntity>
 

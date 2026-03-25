@@ -293,6 +293,11 @@ fun WordbookApp(
                 ExamSetupRoute(
                     viewModel = viewModel,
                     onBack = { navController.popBackStack() },
+                    onContinueExam = { sessionId ->
+                        navController.navigate("exam/$sessionId") {
+                            popUpTo(navController.currentDestination?.route ?: return@navigate)
+                        }
+                    },
                     onStartExam = { sessionId ->
                         navController.navigate("exam/$sessionId") {
                             popUpTo(navController.currentDestination?.route ?: return@navigate)
@@ -1226,6 +1231,7 @@ private fun WordDetailRoute(
 private fun ExamSetupRoute(
     viewModel: ExamSetupViewModel,
     onBack: () -> Unit,
+    onContinueExam: (Long) -> Unit,
     onStartExam: (Long) -> Unit,
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -1272,6 +1278,37 @@ private fun ExamSetupRoute(
                 }
             }
 
+            uiState.inProgressExam?.let { inProgress ->
+                Card(
+                    shape = RoundedCornerShape(20.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 14.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        Text(
+                            text = "진행 중인 시험이 있어요",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                        Text(
+                            text = "${inProgress.deckName} · ${inProgress.answeredCount} / ${inProgress.totalCount} 문제 진행",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = InkSoft,
+                        )
+                        AppSecondaryButton(
+                            text = "이어하기",
+                            onClick = { onContinueExam(inProgress.sessionId) },
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
+                }
+            }
+
             SettingGroup(
                 title = "출제 순서",
                 selectedLabel = orderLabel(uiState.settings.wordOrder),
@@ -1294,16 +1331,32 @@ private fun ExamSetupRoute(
                 onSelect = viewModel::setRevealField,
             )
 
-            AppPrimaryButton(
-                text = "시험 시작",
-                onClick = {
-                    scope.launch {
-                        onStartExam(viewModel.startExam())
-                    }
-                },
+            Row(
                 modifier = Modifier.fillMaxWidth(),
-                enabled = uiState.canStart,
-            )
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                uiState.inProgressExam?.let { inProgress ->
+                    AppSecondaryButton(
+                        text = "이어서 보기",
+                        onClick = { onContinueExam(inProgress.sessionId) },
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+                AppPrimaryButton(
+                    text = if (uiState.inProgressExam == null) "시험 시작" else "새 시험 시작",
+                    onClick = {
+                        scope.launch {
+                            onStartExam(viewModel.startExam())
+                        }
+                    },
+                    modifier = if (uiState.inProgressExam == null) {
+                        Modifier.fillMaxWidth()
+                    } else {
+                        Modifier.weight(1f)
+                    },
+                    enabled = uiState.canStart,
+                )
+            }
         }
     }
 }
