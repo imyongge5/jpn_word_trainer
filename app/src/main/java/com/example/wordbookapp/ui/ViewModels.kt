@@ -7,6 +7,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.update
 import com.example.wordbookapp.data.model.ExamSettings
 import com.example.wordbookapp.data.model.HomeData
 import com.example.wordbookapp.data.model.WordDraft
@@ -86,6 +87,8 @@ class WordEditorViewModel(
                         kanji = word.kanji,
                         meaningJa = word.meaningJa,
                         meaningKo = word.meaningKo,
+                        exampleJa = word.exampleJa,
+                        exampleKo = word.exampleKo,
                         tag = word.tag,
                         note = word.note,
                     )
@@ -220,6 +223,42 @@ class ResultViewModel(
             _uiState.value = ResultUiState(
                 isLoading = false,
                 result = repository.getSessionResult(sessionId),
+            )
+        }
+    }
+}
+
+class WordDetailViewModel(
+    private val repository: WordbookRepository,
+    private val wordId: Long,
+) : ViewModel() {
+    private val _uiState = MutableStateFlow(WordDetailUiState())
+    val uiState: StateFlow<WordDetailUiState> = _uiState
+
+    init {
+        refresh()
+    }
+
+    fun clearSaveToDeckSuccess() {
+        _uiState.update { it.copy(saveToDeckSuccess = false) }
+    }
+
+    fun addToDeck(deckId: Long) {
+        viewModelScope.launch {
+            repository.addWordToExistingDeck(wordId, deckId)
+            _uiState.value = WordDetailUiState(
+                isLoading = false,
+                detail = repository.getWordDetail(wordId),
+                saveToDeckSuccess = true,
+            )
+        }
+    }
+
+    fun refresh() {
+        viewModelScope.launch {
+            _uiState.value = WordDetailUiState(
+                isLoading = false,
+                detail = repository.getWordDetail(wordId),
             )
         }
     }

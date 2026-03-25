@@ -7,6 +7,7 @@ import com.example.wordbookapp.data.model.ExamSessionData
 import com.example.wordbookapp.data.model.ExamSettings
 import com.example.wordbookapp.data.model.HomeData
 import com.example.wordbookapp.data.model.SessionResult
+import com.example.wordbookapp.data.model.WordDetailData
 import com.example.wordbookapp.data.model.WordDraft
 
 data class HomeUiState(
@@ -47,6 +48,12 @@ data class ExamUiState(
 data class ResultUiState(
     val isLoading: Boolean = true,
     val result: SessionResult? = null,
+)
+
+data class WordDetailUiState(
+    val isLoading: Boolean = true,
+    val detail: WordDetailData? = null,
+    val saveToDeckSuccess: Boolean = false,
 )
 
 sealed interface StartExamTarget {

@@ -13,6 +13,8 @@ data class WordEntity(
     val kanji: String,
     val meaningJa: String,
     val meaningKo: String,
+    val exampleJa: String,
+    val exampleKo: String,
     val tag: String,
     val note: String,
     val createdAt: Long,

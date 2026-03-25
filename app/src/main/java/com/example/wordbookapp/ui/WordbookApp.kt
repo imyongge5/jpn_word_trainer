@@ -3,9 +3,12 @@ package com.example.wordbookapp.ui
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -26,6 +29,8 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -42,9 +47,11 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.graphics.Color
@@ -52,6 +59,8 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Edit
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
@@ -115,8 +124,37 @@ fun WordbookApp(
                     viewModel = viewModel,
                     onBack = { navController.popBackStack() },
                     onAddWord = { navController.navigate("word_editor/$deckId") },
-                    onEditWord = { wordId -> navController.navigate("word_editor/$deckId?wordId=$wordId") },
+                    onOpenWord = { wordId -> navController.navigate("word/$wordId?deckId=$deckId") },
                     onStartExam = { navController.navigate("exam_setup?deckId=$deckId") },
+                )
+            }
+            composable(
+                route = "word/{wordId}?deckId={deckId}",
+                arguments = listOf(
+                    navArgument("wordId") { type = NavType.LongType },
+                    navArgument("deckId") {
+                        type = NavType.LongType
+                        defaultValue = -1L
+                    },
+                ),
+            ) { backStackEntry ->
+                val wordId = backStackEntry.arguments?.getLong("wordId") ?: return@composable
+                val rawDeckId = backStackEntry.arguments?.getLong("deckId") ?: -1L
+                val deckId = rawDeckId.takeIf { it > 0 }
+                val viewModel: WordDetailViewModel = viewModel(
+                    key = "word-$wordId",
+                    factory = WordbookViewModelFactory { WordDetailViewModel(repository, wordId) },
+                )
+                WordDetailRoute(
+                    viewModel = viewModel,
+                    deckId = deckId,
+                    onBack = { navController.popBackStack() },
+                    onEdit = { targetWordId ->
+                        navController.navigate("word_editor/${deckId ?: -1}?wordId=$targetWordId")
+                    },
+                    onOpenWord = { targetWordId ->
+                        navController.navigate("word/$targetWordId?deckId=${deckId ?: -1}")
+                    },
                 )
             }
             composable(
@@ -318,10 +356,11 @@ private fun DeckRoute(
     viewModel: DeckDetailViewModel,
     onBack: () -> Unit,
     onAddWord: () -> Unit,
-    onEditWord: (Long) -> Unit,
+    onOpenWord: (Long) -> Unit,
     onStartExam: () -> Unit,
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    var showReadingKo by rememberSaveable { mutableStateOf(false) }
     ScreenContainer(
         title = uiState.deck?.name ?: "단어장",
         onBack = onBack,
@@ -337,13 +376,20 @@ private fun DeckRoute(
                 Button(onClick = onAddWord) { Text("단어 추가") }
                 Button(onClick = onStartExam, enabled = uiState.words.isNotEmpty()) { Text("시험 시작") }
             }
+            OutlinedButton(onClick = { showReadingKo = !showReadingKo }) {
+                Text(if (showReadingKo) "한국어 읽기 숨기기" else "한국어 읽기 보기")
+            }
             HorizontalDivider()
             if (uiState.words.isEmpty()) {
                 EmptyHint("이 단어장에는 아직 단어가 없어요.")
             } else {
                 LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     items(uiState.words) { word ->
-                        WordRow(word = word, onClick = { onEditWord(word.id) })
+                        WordRow(
+                            word = word,
+                            showReadingKo = showReadingKo,
+                            onClick = { onOpenWord(word.id) },
+                        )
                     }
                 }
             }
@@ -387,6 +433,12 @@ private fun WordEditorRoute(
             EditorField("뜻(일본어)", uiState.draft.meaningJa) {
                 viewModel.updateDraft { draft -> draft.copy(meaningJa = it) }
             }
+            EditorField("예문(일본어)", uiState.draft.exampleJa) {
+                viewModel.updateDraft { draft -> draft.copy(exampleJa = it) }
+            }
+            EditorField("예문 뜻(한국어)", uiState.draft.exampleKo) {
+                viewModel.updateDraft { draft -> draft.copy(exampleKo = it) }
+            }
             EditorField("품사", uiState.draft.partOfSpeech) {
                 viewModel.updateDraft { draft -> draft.copy(partOfSpeech = it) }
             }
@@ -402,6 +454,167 @@ private fun WordEditorRoute(
             uiState.errorMessage?.let { Text(it, color = MaterialTheme.colorScheme.error) }
             Button(onClick = { viewModel.save() }) {
                 Text(if (uiState.isEditMode) "수정 저장" else "단어 저장")
+            }
+        }
+    }
+}
+
+@Composable
+private fun WordDetailRoute(
+    viewModel: WordDetailViewModel,
+    deckId: Long?,
+    onBack: () -> Unit,
+    onEdit: (Long) -> Unit,
+    onOpenWord: (Long) -> Unit,
+) {
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    var showDeckDialog by remember { mutableStateOf(false) }
+
+    LaunchedEffect(uiState.saveToDeckSuccess) {
+        if (uiState.saveToDeckSuccess) {
+            showDeckDialog = false
+            viewModel.clearSaveToDeckSuccess()
+        }
+    }
+
+    ScreenContainer(
+        title = "단어사전",
+        onBack = onBack,
+        actions = {
+            val wordId = uiState.detail?.word?.id
+            if (wordId != null) {
+                IconButton(onClick = { onEdit(wordId) }) {
+                    Icon(Icons.Outlined.Edit, contentDescription = "수정")
+                }
+            }
+        },
+    ) {
+        if (uiState.isLoading || uiState.detail == null) {
+            LoadingView()
+            return@ScreenContainer
+        }
+
+        val detail = uiState.detail ?: return@ScreenContainer
+        val word = detail.word
+        val excludedDeckIds = detail.includedDecks.map { it.id }.toSet()
+        val addableDecks = detail.allDecks.filter { it.id !in excludedDeckIds }
+
+        if (showDeckDialog) {
+            AlertDialog(
+                onDismissRequest = { showDeckDialog = false },
+                title = { Text("단어장에 추가") },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        if (addableDecks.isEmpty()) {
+                            Text("이미 모든 단어장에 들어 있어요.")
+                        } else {
+                            addableDecks.forEach { deck ->
+                                OutlinedButton(
+                                    onClick = { viewModel.addToDeck(deck.id) },
+                                    modifier = Modifier.fillMaxWidth(),
+                                ) {
+                                    Text(deck.name)
+                                }
+                            }
+                        }
+                    }
+                },
+                confirmButton = {
+                    TextButton(onClick = { showDeckDialog = false }) {
+                        Text("닫기")
+                    }
+                },
+            )
+        }
+
+        Column(
+            modifier = Modifier.verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            WordDictionaryHeader(
+                word = word,
+                showReadingKo = true,
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(onClick = { showDeckDialog = true }) {
+                    Text("단어장에 넣기")
+                }
+                if (deckId != null) {
+                    OutlinedButton(onClick = { onEdit(word.id) }) {
+                        Text("이 단어 수정")
+                    }
+                }
+            }
+            DetailSection("포함된 단어장") {
+                if (detail.includedDecks.isEmpty()) {
+                    EmptyHint("아직 연결된 단어장이 없어요.")
+                } else {
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        detail.includedDecks.forEach { deck ->
+                            AssistChip(
+                                onClick = { },
+                                label = { Text(deck.name) },
+                                colors = androidx.compose.material3.AssistChipDefaults.assistChipColors(
+                                    containerColor = PrimaryBlueSoft,
+                                    labelColor = PrimaryBlue,
+                                ),
+                            )
+                        }
+                    }
+                }
+            }
+            DetailSection("뜻(한국어)") {
+                Text(word.meaningKo, style = MaterialTheme.typography.bodyLarge)
+            }
+            if (word.meaningJa.isNotBlank()) {
+                DetailSection("뜻(일본어)") {
+                    LinkedJapaneseText(
+                        text = word.meaningJa,
+                        currentWordId = word.id,
+                        allWords = detail.allWords,
+                        onOpenWord = onOpenWord,
+                    )
+                }
+            }
+            if (word.exampleJa.isNotBlank() || word.exampleKo.isNotBlank()) {
+                DetailSection("예문") {
+                    if (word.exampleJa.isNotBlank()) {
+                        LinkedJapaneseText(
+                            text = word.exampleJa,
+                            currentWordId = word.id,
+                            allWords = detail.allWords,
+                            onOpenWord = onOpenWord,
+                        )
+                    }
+                    if (word.exampleKo.isNotBlank()) {
+                        Text(
+                            word.exampleKo,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = InkSoft,
+                        )
+                    }
+                }
+            }
+            DetailSection("기본 정보") {
+                DictionaryMetaRow("읽는 방법(일본어)", word.readingJa)
+                if (word.readingKo.isNotBlank()) {
+                    DictionaryMetaRow("읽는 방법(한국어)", word.readingKo)
+                }
+                if (word.partOfSpeech.isNotBlank()) {
+                    DictionaryMetaRow("품사", word.partOfSpeech)
+                }
+                if (word.grammar.isNotBlank()) {
+                    DictionaryMetaRow("문법", word.grammar)
+                }
+                if (word.tag.isNotBlank()) {
+                    DictionaryMetaRow("태그", word.tag)
+                }
+                if (word.note.isNotBlank()) {
+                    DictionaryMetaRow("비고", word.note)
+                }
             }
         }
     }
@@ -618,6 +831,7 @@ private fun ResultRoute(
 private fun ScreenContainer(
     title: String,
     onBack: (() -> Unit)? = null,
+    actions: @Composable (() -> Unit)? = null,
     content: @Composable () -> Unit,
 ) {
     Column(
@@ -632,8 +846,11 @@ private fun ScreenContainer(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(title, style = MaterialTheme.typography.headlineSmall)
-            if (onBack != null) {
-                TextButton(onClick = onBack) { Text("뒤로") }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                actions?.invoke()
+                if (onBack != null) {
+                    TextButton(onClick = onBack) { Text("뒤로") }
+                }
             }
         }
         content()
@@ -734,7 +951,11 @@ private fun DeckCard(deck: DeckWithCount, onClick: () -> Unit) {
 }
 
 @Composable
-private fun WordRow(word: WordEntity, onClick: () -> Unit) {
+private fun WordRow(
+    word: WordEntity,
+    showReadingKo: Boolean,
+    onClick: () -> Unit,
+) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -754,7 +975,78 @@ private fun WordRow(word: WordEntity, onClick: () -> Unit) {
                     .clip(RoundedCornerShape(999.dp))
                     .background(Brush.verticalGradient(listOf(PrimaryBlueSoft, SecondaryCoralSoft))),
             )
-            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(
+                    modifier = Modifier.weight(0.48f),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    Text(
+                        text = word.partOfSpeech.ifBlank { word.tag.ifBlank { "단어" } },
+                        style = MaterialTheme.typography.labelMedium,
+                        color = PrimaryBlue,
+                    )
+                    RubyFieldText(
+                        word = word,
+                        field = WordField.KANJI,
+                        mainStyle = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                        rubyStyle = MaterialTheme.typography.labelMedium,
+                        rubyColor = SecondaryCoral,
+                    )
+                    if (showReadingKo && word.readingKo.isNotBlank()) {
+                        Text(
+                            text = word.readingKo,
+                            style = MaterialTheme.typography.labelMedium,
+                            color = InkMuted,
+                        )
+                    }
+                }
+                Column(
+                    modifier = Modifier.weight(0.52f),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    Text(
+                        text = word.meaningKo,
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = InkSoft,
+                    )
+                    if (word.meaningJa.isNotBlank()) {
+                        Text(
+                            text = word.meaningJa,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = InkMuted,
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun WordDictionaryHeader(
+    word: WordEntity,
+    showReadingKo: Boolean,
+) {
+    Card(
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(containerColor = PaperElevated),
+        border = BorderStroke(1.25.dp, CardBorderStrong),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 18.dp, vertical = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(
+                modifier = Modifier.weight(0.46f),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
                 Text(
                     text = word.partOfSpeech.ifBlank { word.tag.ifBlank { "단어" } },
                     style = MaterialTheme.typography.labelMedium,
@@ -763,32 +1055,170 @@ private fun WordRow(word: WordEntity, onClick: () -> Unit) {
                 RubyFieldText(
                     word = word,
                     field = WordField.KANJI,
-                    mainStyle = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                    mainStyle = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
                     rubyStyle = MaterialTheme.typography.labelMedium,
                     rubyColor = SecondaryCoral,
                 )
-                Text(
-                    text = word.meaningKo,
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = InkSoft,
-                )
-                if (word.meaningJa.isNotBlank()) {
-                    Text(
-                        text = word.meaningJa,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = InkMuted,
-                    )
+                if (showReadingKo && word.readingKo.isNotBlank()) {
+                    Text(word.readingKo, style = MaterialTheme.typography.bodySmall, color = InkMuted)
                 }
-                if (word.readingKo.isNotBlank()) {
+            }
+            Column(
+                modifier = Modifier.weight(0.54f),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Text(word.meaningKo, style = MaterialTheme.typography.titleMedium, color = InkSoft)
+                if (word.meaningJa.isNotBlank()) {
+                    Text(word.meaningJa, style = MaterialTheme.typography.bodyMedium, color = InkMuted)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DetailSection(
+    title: String,
+    content: @Composable () -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+        Card(
+            shape = RoundedCornerShape(20.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            border = BorderStroke(1.dp, DividerSoft),
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                content()
+            }
+        }
+    }
+}
+
+@Composable
+private fun DictionaryMetaRow(
+    label: String,
+    value: String,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Text(
+            text = label,
+            modifier = Modifier.weight(0.32f),
+            style = MaterialTheme.typography.labelLarge,
+            color = InkMuted,
+        )
+        Text(
+            text = value,
+            modifier = Modifier.weight(0.68f),
+            style = MaterialTheme.typography.bodyMedium,
+        )
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun LinkedJapaneseText(
+    text: String,
+    currentWordId: Long,
+    allWords: List<WordEntity>,
+    onOpenWord: (Long) -> Unit,
+) {
+    val segments = remember(text, currentWordId, allWords) {
+        buildLinkedSegments(
+            text = text,
+            currentWordId = currentWordId,
+            allWords = allWords,
+        )
+    }
+
+    FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(2.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        segments.forEach { segment ->
+            when (segment) {
+                is LinkedSegment.Plain -> Text(
+                    text = segment.text,
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+
+                is LinkedSegment.WordMatch -> Column(
+                    modifier = Modifier.clickable(enabled = segment.word.id != currentWordId) {
+                        if (segment.word.id != currentWordId) {
+                            onOpenWord(segment.word.id)
+                        }
+                    },
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(0.dp),
+                ) {
                     Text(
-                        text = word.readingKo,
-                        style = MaterialTheme.typography.labelMedium,
-                        color = InkMuted,
+                        text = segment.word.readingJa,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = SecondaryCoral,
+                    )
+                    Text(
+                        text = segment.displayText,
+                        style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold),
+                        color = if (segment.word.id == currentWordId) InkSoft else PrimaryBlue,
                     )
                 }
             }
         }
     }
+}
+
+private sealed interface LinkedSegment {
+    data class Plain(val text: String) : LinkedSegment
+    data class WordMatch(val displayText: String, val word: WordEntity) : LinkedSegment
+}
+
+private fun buildLinkedSegments(
+    text: String,
+    currentWordId: Long,
+    allWords: List<WordEntity>,
+): List<LinkedSegment> {
+    if (text.isBlank()) return emptyList()
+
+    val candidates = allWords
+        .filter { it.id != currentWordId }
+        .flatMap { word ->
+            buildList {
+                val kanji = word.kanji.trim()
+                val reading = word.readingJa.trim()
+                if (kanji.isNotBlank()) add(kanji to word)
+                if (reading.isNotBlank() && reading != kanji) add(reading to word)
+            }
+        }
+        .distinctBy { it.first to it.second.id }
+        .sortedByDescending { it.first.length }
+
+    val segments = mutableListOf<LinkedSegment>()
+    var index = 0
+    while (index < text.length) {
+        val match = candidates.firstOrNull { (token, _) ->
+            token.isNotBlank() && text.regionMatches(index, token, 0, token.length)
+        }
+        if (match != null) {
+            segments += LinkedSegment.WordMatch(
+                displayText = match.first,
+                word = match.second,
+            )
+            index += match.first.length
+        } else {
+            segments += LinkedSegment.Plain(text[index].toString())
+            index += 1
+        }
+    }
+    return segments
 }
 
 @Composable

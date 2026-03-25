@@ -24,6 +24,16 @@ interface WordDao {
     @Query("SELECT * FROM words ORDER BY createdAt DESC")
     suspend fun getAllWordsByNewest(): List<WordEntity>
 
+    @Query(
+        """
+        SELECT * FROM words
+        WHERE kanji LIKE '%' || :query || '%'
+           OR readingJa LIKE '%' || :query || '%'
+        ORDER BY LENGTH(kanji) DESC, LENGTH(readingJa) DESC, createdAt DESC
+        """,
+    )
+    suspend fun findWordsForInlineMatch(query: String): List<WordEntity>
+
     @Query("SELECT COUNT(*) FROM words")
     suspend fun getWordCount(): Int
 }

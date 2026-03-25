@@ -23,7 +23,7 @@ import com.example.wordbookapp.data.local.entity.WordEntity
         StudySessionEntity::class,
         WordEntity::class,
     ],
-    version = 1,
+    version = 2,
     exportSchema = false,
 )
 @TypeConverters(Converters::class)

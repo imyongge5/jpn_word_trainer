@@ -22,6 +22,7 @@ import com.example.wordbookapp.data.model.HomeData
 import com.example.wordbookapp.data.model.SessionResult
 import com.example.wordbookapp.data.model.SessionSummary
 import com.example.wordbookapp.data.model.WordAggregateStat
+import com.example.wordbookapp.data.model.WordDetailData
 import com.example.wordbookapp.data.model.WordDraft
 import com.example.wordbookapp.data.model.WordOrder
 
@@ -93,6 +94,8 @@ class WordbookRepository(
                     kanji = record.kanji,
                     meaningJa = record.meaningJa,
                     meaningKo = record.meaningKo,
+                    exampleJa = record.exampleJa,
+                    exampleKo = record.exampleKo,
                     tag = record.tag,
                     note = record.note,
                     createdAt = now + 100 + index,
@@ -150,6 +153,8 @@ class WordbookRepository(
                 kanji = draft.kanji.trim(),
                 meaningJa = draft.meaningJa.trim(),
                 meaningKo = draft.meaningKo.trim(),
+                exampleJa = draft.exampleJa.trim(),
+                exampleKo = draft.exampleKo.trim(),
                 tag = draft.tag.trim(),
                 note = draft.note.trim(),
                 createdAt = now,
@@ -178,6 +183,8 @@ class WordbookRepository(
                 kanji = draft.kanji.trim(),
                 meaningJa = draft.meaningJa.trim(),
                 meaningKo = draft.meaningKo.trim(),
+                exampleJa = draft.exampleJa.trim(),
+                exampleKo = draft.exampleKo.trim(),
                 tag = draft.tag.trim(),
                 note = draft.note.trim(),
             ),
@@ -186,6 +193,29 @@ class WordbookRepository(
 
     suspend fun getWord(wordId: Long): WordEntity? = withContext(Dispatchers.IO) {
         wordDao.getWordById(wordId)
+    }
+
+    suspend fun getWordDetail(wordId: Long): WordDetailData = withContext(Dispatchers.IO) {
+        val word = requireNotNull(wordDao.getWordById(wordId))
+        WordDetailData(
+            word = word,
+            includedDecks = deckDao.getDecksForWord(wordId),
+            allDecks = deckDao.getDecks(),
+            allWords = wordDao.getAllWordsByNewest(),
+        )
+    }
+
+    suspend fun addWordToExistingDeck(wordId: Long, deckId: Long) = withContext(Dispatchers.IO) {
+        val existingIds = deckDao.getWordsForDeck(deckId).map { it.id }.toSet()
+        if (wordId in existingIds) return@withContext
+        deckDao.insertDeckWordCrossRef(
+            DeckWordCrossRef(
+                deckId = deckId,
+                wordId = wordId,
+                displayOrder = existingIds.size,
+                addedAt = System.currentTimeMillis(),
+            ),
+        )
     }
 
     suspend fun createExamSession(
@@ -372,6 +402,8 @@ class WordbookRepository(
                         kanji = item.getString("kanji"),
                         meaningJa = item.getString("meaningJa"),
                         meaningKo = item.getString("meaningKo"),
+                        exampleJa = item.optString("exampleJa"),
+                        exampleKo = item.optString("exampleKo"),
                         tag = item.getString("tag"),
                         note = item.getString("note"),
                     ),

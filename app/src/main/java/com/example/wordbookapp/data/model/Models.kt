@@ -40,6 +40,8 @@ data class WordDraft(
     val kanji: String = "",
     val meaningJa: String = "",
     val meaningKo: String = "",
+    val exampleJa: String = "",
+    val exampleKo: String = "",
     val tag: String = "",
     val note: String = "",
 )
@@ -89,4 +91,11 @@ data class HomeData(
 data class DeckDetailData(
     val deck: DeckEntity,
     val words: List<WordEntity>,
+)
+
+data class WordDetailData(
+    val word: WordEntity,
+    val includedDecks: List<DeckWithCount>,
+    val allDecks: List<DeckWithCount>,
+    val allWords: List<WordEntity>,
 )
