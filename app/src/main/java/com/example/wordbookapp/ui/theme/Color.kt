@@ -1,17 +1,16 @@
 package com.example.wordbookapp.ui.theme
 
-// Generated from design/figma-tokens.json by scripts/sync-figma-tokens.ps1
-// Update tokens from Figma export, then run the build script.
-
 val Paper = oklch(0.97, 0.01, 95.0)
 val PaperElevated = oklch(0.985, 0.008, 95.0)
 val SurfaceSoft = oklch(0.955, 0.01, 250.0)
 val SurfaceTint = oklch(0.94, 0.022, 245.0)
 val SurfaceContainer = oklch(0.945, 0.012, 250.0)
 val SurfaceContainerHigh = oklch(0.93, 0.014, 250.0)
+
 val Ink = oklch(0.24, 0.02, 255.0)
 val InkSoft = oklch(0.48, 0.025, 255.0)
-val InkMuted = oklch(0.6, 0.02, 255.0)
+val InkMuted = oklch(0.60, 0.02, 255.0)
+
 val PrimaryBlue = oklch(0.59, 0.085, 250.0)
 val PrimaryBlueSoft = oklch(0.86, 0.028, 250.0)
 val PrimaryBlueContainer = oklch(0.82, 0.036, 250.0)

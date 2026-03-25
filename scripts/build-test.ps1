@@ -1,8 +1,6 @@
 param(
     [string]$GradleTask = "assembleDebug",
     [switch]$SkipInstall,
-    [switch]$SkipFigma,
-    [switch]$SkipDesignSync,
     [string]$PackageName = "com.example.wordbookapp",
     [string]$LaunchActivity = ".MainActivity"
 )
@@ -12,9 +10,6 @@ $ErrorActionPreference = "Stop"
 $projectRoot = Split-Path -Parent $PSScriptRoot
 $javaHome = "<ANDROID_JBR>"
 $sdkRoot = "<ANDROID_SDK>"
-$figmaFileUrl = "https://www.figma.com/design/XNcUCPgnIv2wLvFG1HtC4M/%EB%8B%A8%EC%96%B4%EC%9E%A5-%EC%95%B1-UI?t=63R42XsdSANQAEzj-0"
-$figmaMappingPath = Join-Path $projectRoot "docs\FIGMA_MAPPING.md"
-$designSyncScriptPath = Join-Path $PSScriptRoot "sync-figma-tokens.ps1"
 
 if (-not (Test-Path (Join-Path $projectRoot "gradlew.bat"))) {
     throw "gradlew.bat not found in $projectRoot"
@@ -42,26 +37,10 @@ $env:Path = @(
 
 Push-Location $projectRoot
 try {
-    if (-not $SkipDesignSync.IsPresent -and (Test-Path $designSyncScriptPath)) {
-        Write-Host "Syncing design tokens"
-        & $designSyncScriptPath
-        if (-not $?) {
-            throw "Design sync failed"
-        }
-    }
-
     Write-Host "Running Gradle task: $GradleTask"
     & ".\gradlew.bat" $GradleTask
     if ($LASTEXITCODE -ne 0) {
         throw "Gradle task failed with exit code $LASTEXITCODE"
-    }
-
-    if (-not $SkipFigma.IsPresent) {
-        Write-Host "Opening mapped Figma file"
-        Start-Process $figmaFileUrl
-        if (Test-Path $figmaMappingPath) {
-            Write-Host "Figma mapping: $figmaMappingPath"
-        }
     }
 
     $shouldInstall = -not $SkipInstall.IsPresent -and $GradleTask -eq "assembleDebug"
