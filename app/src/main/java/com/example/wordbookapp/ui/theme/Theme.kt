@@ -1,30 +1,25 @@
 package com.example.wordbookapp.ui.theme
 
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 
 private val LightColors = lightColorScheme(
-    primary = Teal,
-    secondary = Coral,
-    background = Sand,
-    surface = Mist,
-    onPrimary = Sand,
+    primary = PrimaryBlue,
+    secondary = SecondaryCoral,
+    background = Paper,
+    surface = PaperElevated,
+    surfaceVariant = SurfaceSoft,
+    primaryContainer = PrimaryBlueSoft,
+    secondaryContainer = SecondaryCoralSoft,
+    onPrimary = Paper,
     onSecondary = Ink,
+    onPrimaryContainer = Ink,
+    onSecondaryContainer = Ink,
     onBackground = Ink,
     onSurface = Ink,
-)
-
-private val DarkColors = darkColorScheme(
-    primary = Coral,
-    secondary = Teal,
-    background = Ink,
-    surface = ColorTokens.DarkSurface,
-    onPrimary = Ink,
-    onSecondary = Ink,
-    onBackground = Sand,
-    onSurface = Sand,
+    onSurfaceVariant = InkSoft,
+    outlineVariant = DividerSoft,
 )
 
 @Composable
@@ -34,8 +29,4 @@ fun WordbookAppTheme(content: @Composable () -> Unit) {
         typography = AppTypography,
         content = content,
     )
-}
-
-private object ColorTokens {
-    val DarkSurface = androidx.compose.ui.graphics.Color(0xFF2A3441)
 }

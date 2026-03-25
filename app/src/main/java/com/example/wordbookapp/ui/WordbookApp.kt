@@ -2,6 +2,7 @@ package com.example.wordbookapp.ui
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -9,8 +10,10 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -45,6 +48,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -61,6 +66,14 @@ import com.example.wordbookapp.data.model.DeckWithCount
 import com.example.wordbookapp.data.model.WordField
 import com.example.wordbookapp.data.model.WordOrder
 import com.example.wordbookapp.data.repository.WordbookRepository
+import com.example.wordbookapp.ui.theme.DividerSoft
+import com.example.wordbookapp.ui.theme.InkMuted
+import com.example.wordbookapp.ui.theme.InkSoft
+import com.example.wordbookapp.ui.theme.PaperElevated
+import com.example.wordbookapp.ui.theme.PrimaryBlue
+import com.example.wordbookapp.ui.theme.PrimaryBlueSoft
+import com.example.wordbookapp.ui.theme.SecondaryCoral
+import com.example.wordbookapp.ui.theme.SecondaryCoralSoft
 
 @Composable
 fun WordbookApp(
@@ -496,15 +509,25 @@ private fun ExamRoute(
                         )
                     }
                     Text(
-                        text = displayField(currentWord, sessionData.session.frontField),
-                        style = MaterialTheme.typography.headlineSmall,
-                        textAlign = TextAlign.Center,
+                        text = fieldLabel(sessionData.session.frontField),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = Color(0xFF7A97BB),
+                    )
+                    RubyFieldText(
+                        word = currentWord,
+                        field = sessionData.session.frontField,
+                        mainStyle = MaterialTheme.typography.headlineSmall,
+                        rubyStyle = MaterialTheme.typography.labelMedium,
+                        alignCenter = true,
                     )
                     if (uiState.revealed) {
-                        Text(
-                            text = displayField(currentWord, sessionData.session.revealField),
-                            style = MaterialTheme.typography.titleLarge,
-                            textAlign = TextAlign.Center,
+                        RubyFieldText(
+                            word = currentWord,
+                            field = sessionData.session.revealField,
+                            mainStyle = MaterialTheme.typography.titleLarge,
+                            rubyStyle = MaterialTheme.typography.labelMedium,
+                            alignCenter = true,
+                            rubyColor = Color(0xFFE5807A),
                         )
                         Text(
                             currentWord.meaningKo,
@@ -639,16 +662,41 @@ private fun SummaryCard(
     onOpenAiDeck: () -> Unit,
 ) {
     Card {
-        Column(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(
+                    brush = Brush.verticalGradient(
+                        colors = listOf(PrimaryBlueSoft, PaperElevated),
+                    ),
+                ),
         ) {
-            Text("총 단어 ${totalWords}개", fontWeight = FontWeight.Bold)
-            Text("최근 시험 ${recentSessionCount}회")
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(onClick = onCreateCustomDeck) { Text("커스텀 단어장") }
-                OutlinedButton(onClick = onOpenAiDeck) { Text("AI 단어장") }
+            Column(
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                Text(
+                    "총 단어 ${totalWords}개",
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+                Text(
+                    "최근 시험 ${recentSessionCount}회",
+                    color = InkSoft,
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(onClick = onCreateCustomDeck) { Text("커스텀 단어장") }
+                    OutlinedButton(onClick = onOpenAiDeck) { Text("AI 단어장") }
+                }
             }
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .offset(x = (-18).dp, y = 18.dp)
+                    .width(72.dp)
+                    .clip(RoundedCornerShape(999.dp))
+                    .background(SecondaryCoralSoft),
+            )
         }
     }
 }
@@ -661,16 +709,24 @@ private fun DeckCard(deck: DeckWithCount, onClick: () -> Unit) {
             .clickable { onClick() },
         shape = RoundedCornerShape(22.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, DividerSoft),
     ) {
         Column(
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 13.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
-            Text(deck.name, fontWeight = FontWeight.Bold)
-            Text(deck.description)
+            Text(deck.name, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+            Text(deck.description, color = InkSoft)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                AssistChip(onClick = onClick, label = { Text(deck.sourceTag) })
-                Text("${deck.wordCount}개 단어")
+                AssistChip(
+                    onClick = onClick,
+                    label = { Text(deck.sourceTag) },
+                    colors = androidx.compose.material3.AssistChipDefaults.assistChipColors(
+                        containerColor = PrimaryBlueSoft,
+                        labelColor = PrimaryBlue,
+                    ),
+                )
+                Text("${deck.wordCount}개 단어", color = InkMuted)
             }
         }
     }
@@ -683,7 +739,7 @@ private fun WordRow(word: WordEntity, onClick: () -> Unit) {
             .fillMaxWidth()
             .clickable { onClick() },
         shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFFFFCF7)),
+        colors = CardDefaults.cardColors(containerColor = PaperElevated),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
     ) {
         Row(
@@ -694,43 +750,38 @@ private fun WordRow(word: WordEntity, onClick: () -> Unit) {
                 modifier = Modifier
                     .width(4.dp)
                     .clip(RoundedCornerShape(999.dp))
-                    .background(Color(0xFFE7E7EB)),
+                    .background(Brush.verticalGradient(listOf(PrimaryBlueSoft, SecondaryCoralSoft))),
             )
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(
                     text = word.partOfSpeech.ifBlank { word.tag.ifBlank { "단어" } },
                     style = MaterialTheme.typography.labelMedium,
-                    color = Color(0xFF7A97BB),
+                    color = PrimaryBlue,
                 )
-                if (word.readingJa.isNotBlank()) {
-                    Text(
-                        text = word.readingJa,
-                        style = MaterialTheme.typography.labelMedium,
-                        color = Color(0xFFE5807A),
-                    )
-                }
-                Text(
-                    text = word.kanji,
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
+                RubyFieldText(
+                    word = word,
+                    field = WordField.KANJI,
+                    mainStyle = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                    rubyStyle = MaterialTheme.typography.labelMedium,
+                    rubyColor = SecondaryCoral,
                 )
                 Text(
                     text = word.meaningKo,
                     style = MaterialTheme.typography.bodyLarge,
-                    color = Color(0xFF80848C),
+                    color = InkSoft,
                 )
                 if (word.meaningJa.isNotBlank()) {
                     Text(
                         text = word.meaningJa,
                         style = MaterialTheme.typography.bodyMedium,
-                        color = Color(0xFF9AA0A8),
+                        color = InkMuted,
                     )
                 }
                 if (word.readingKo.isNotBlank()) {
                     Text(
                         text = word.readingKo,
                         style = MaterialTheme.typography.labelMedium,
-                        color = Color(0xFFA0A7B0),
+                        color = InkMuted,
                     )
                 }
             }
@@ -795,4 +846,55 @@ private fun displayField(word: WordEntity, field: WordField): String = when (fie
     WordField.READING_JA -> word.readingJa
     WordField.READING_KO -> word.readingKo
     WordField.MEANING_KO -> word.meaningKo
+}
+
+@Composable
+private fun RubyFieldText(
+    word: WordEntity,
+    field: WordField,
+    mainStyle: TextStyle,
+    rubyStyle: TextStyle,
+    modifier: Modifier = Modifier,
+    alignCenter: Boolean = false,
+    rubyColor: Color = SecondaryCoral,
+) {
+    val mainText = displayField(word, field)
+    val rubyText = rubyTextFor(word, field)
+
+    if (rubyText == null) {
+        Text(
+            text = mainText,
+            modifier = modifier,
+            style = mainStyle,
+            textAlign = if (alignCenter) TextAlign.Center else TextAlign.Start,
+        )
+        return
+    }
+
+    Column(
+        modifier = modifier.then(
+            if (alignCenter) Modifier.fillMaxWidth() else Modifier.wrapContentWidth(),
+        ),
+        horizontalAlignment = if (alignCenter) Alignment.CenterHorizontally else Alignment.Start,
+        verticalArrangement = Arrangement.spacedBy(1.dp),
+    ) {
+        Text(
+            text = rubyText,
+            style = rubyStyle,
+            color = rubyColor,
+            textAlign = if (alignCenter) TextAlign.Center else TextAlign.Start,
+        )
+        Text(
+            text = mainText,
+            style = mainStyle,
+            textAlign = if (alignCenter) TextAlign.Center else TextAlign.Start,
+        )
+    }
+}
+
+private fun rubyTextFor(word: WordEntity, field: WordField): String? = when (field) {
+    WordField.KANJI -> word.readingJa.takeIf { it.isNotBlank() }
+    WordField.READING_JA -> null
+    WordField.READING_KO -> null
+    WordField.MEANING_KO -> null
 }

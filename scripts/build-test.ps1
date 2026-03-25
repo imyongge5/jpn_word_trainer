@@ -1,5 +1,8 @@
 param(
-    [string]$GradleTask = "assembleDebug"
+    [string]$GradleTask = "assembleDebug",
+    [switch]$SkipInstall,
+    [string]$PackageName = "com.example.wordbookapp",
+    [string]$LaunchActivity = ".MainActivity"
 )
 
 $ErrorActionPreference = "Stop"
@@ -38,6 +41,39 @@ try {
     & ".\gradlew.bat" $GradleTask
     if ($LASTEXITCODE -ne 0) {
         throw "Gradle task failed with exit code $LASTEXITCODE"
+    }
+
+    $shouldInstall = -not $SkipInstall.IsPresent -and $GradleTask -eq "assembleDebug"
+    if (-not $shouldInstall) {
+        return
+    }
+
+    $apkPath = Join-Path $projectRoot "app\build\outputs\apk\debug\app-debug.apk"
+    if (-not (Test-Path $apkPath)) {
+        throw "APK not found at $apkPath"
+    }
+
+    $deviceLines = & adb devices
+    $emulatorSerial = $deviceLines |
+        Select-String "emulator-\d+\s+device" |
+        ForEach-Object { ($_ -split "\s+")[0] } |
+        Select-Object -First 1
+
+    if (-not $emulatorSerial) {
+        Write-Host "No running emulator found. Build finished, install skipped."
+        return
+    }
+
+    Write-Host "Installing APK on $emulatorSerial"
+    & adb -s $emulatorSerial install -r $apkPath
+    if ($LASTEXITCODE -ne 0) {
+        throw "APK install failed with exit code $LASTEXITCODE"
+    }
+
+    Write-Host "Launching $PackageName/$LaunchActivity"
+    & adb -s $emulatorSerial shell am start -n "$PackageName/$LaunchActivity"
+    if ($LASTEXITCODE -ne 0) {
+        throw "App launch failed with exit code $LASTEXITCODE"
     }
 }
 finally {
