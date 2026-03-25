@@ -1,18 +1,16 @@
 package com.example.wordbookapp.ui.theme
 
-import androidx.compose.ui.graphics.Color
+val Paper = oklch(0.97, 0.01, 95.0)
+val PaperElevated = oklch(0.985, 0.008, 95.0)
+val SurfaceSoft = oklch(0.955, 0.01, 250.0)
+val SurfaceTint = oklch(0.94, 0.022, 245.0)
 
-val Paper = Color(0xFFF9F7F2)
-val PaperElevated = Color(0xFFFFFCF7)
-val SurfaceSoft = Color(0xFFF2F4F7)
-val SurfaceTint = Color(0xFFEAF1F7)
+val Ink = oklch(0.28, 0.02, 255.0)
+val InkSoft = oklch(0.55, 0.025, 255.0)
+val InkMuted = oklch(0.68, 0.02, 255.0)
 
-val Ink = Color(0xFF22252B)
-val InkSoft = Color(0xFF616874)
-val InkMuted = Color(0xFF8D95A1)
-
-val PrimaryBlue = Color(0xFF6F8FB7)
-val PrimaryBlueSoft = Color(0xFFDCE7F3)
-val SecondaryCoral = Color(0xFFE9877E)
-val SecondaryCoralSoft = Color(0xFFFBE4E1)
-val DividerSoft = Color(0xFFE4E8EE)
+val PrimaryBlue = oklch(0.67, 0.085, 250.0)
+val PrimaryBlueSoft = oklch(0.92, 0.028, 250.0)
+val SecondaryCoral = oklch(0.73, 0.11, 32.0)
+val SecondaryCoralSoft = oklch(0.93, 0.03, 32.0)
+val DividerSoft = oklch(0.91, 0.012, 250.0)
