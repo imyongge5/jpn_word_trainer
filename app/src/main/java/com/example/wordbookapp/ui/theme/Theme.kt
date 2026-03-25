@@ -10,11 +10,12 @@ import androidx.compose.ui.unit.dp
 private val LightColors = lightColorScheme(
     primary = PrimaryBlue,
     secondary = SecondaryCoral,
+    tertiary = SecondaryCoral,
     background = Paper,
     surface = PaperElevated,
     surfaceVariant = SurfaceSoft,
-    primaryContainer = PrimaryBlueSoft,
-    secondaryContainer = SecondaryCoralSoft,
+    primaryContainer = PrimaryBlueContainer,
+    secondaryContainer = SecondaryCoralContainer,
     onPrimary = Paper,
     onSecondary = Ink,
     onPrimaryContainer = Ink,
@@ -22,6 +23,7 @@ private val LightColors = lightColorScheme(
     onBackground = Ink,
     onSurface = Ink,
     onSurfaceVariant = InkSoft,
+    outline = CardBorderStrong,
     outlineVariant = DividerSoft,
 )
 

@@ -41,6 +41,7 @@ import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.material3.Scaffold
@@ -72,7 +73,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Edit
+import androidx.compose.material.icons.outlined.FilterList
 import androidx.compose.material.icons.outlined.PlayArrow
+import androidx.compose.material.icons.outlined.Search
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.activity.compose.BackHandler
@@ -488,29 +491,24 @@ private fun DeckRoute(
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(deck.description, style = MaterialTheme.typography.bodyMedium)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    FilledTonalIconButton(onClick = onAddWord) {
-                        Icon(Icons.Outlined.Add, contentDescription = "단어 추가")
-                    }
-                    FilledTonalIconButton(
-                        onClick = onStartExam,
+                    AppActionButton(
+                        icon = Icons.Outlined.Add,
+                        contentDescription = "단어 추가",
+                        onClick = onAddWord,
+                    )
+                    AppActionButton(
+                        icon = Icons.Outlined.PlayArrow,
+                        contentDescription = "시험 시작",
                         enabled = uiState.words.isNotEmpty(),
-                    ) {
-                        Icon(Icons.Outlined.PlayArrow, contentDescription = "시험 시작")
-                    }
-                    OutlinedButton(
-                        onClick = { scope.launch { drawerState.open() } },
-                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
-                    ) {
-                        Text("필터")
-                    }
+                        onClick = onStartExam,
+                    )
+                    AppFilterButton(onClick = { scope.launch { drawerState.open() } })
                 }
-                OutlinedTextField(
+                AppSearchField(
                     value = searchQuery,
                     onValueChange = { searchQuery = it },
-                    modifier = Modifier.fillMaxWidth(),
-                    label = { Text("단어 검색") },
-                    placeholder = { Text("한자, 읽기, 뜻, 태그로 찾기") },
-                    singleLine = true,
+                    label = "단어 검색",
+                    placeholder = "한자, 읽기, 뜻, 태그로 찾기",
                 )
                 Text(
                     text = buildFilterSummary(
@@ -662,20 +660,13 @@ private fun AllWordsRoute(
             }
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedButton(
-                        onClick = { scope.launch { drawerState.open() } },
-                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
-                    ) {
-                        Text("필터")
-                    }
+                    AppFilterButton(onClick = { scope.launch { drawerState.open() } })
                 }
-                OutlinedTextField(
+                AppSearchField(
                     value = searchQuery,
                     onValueChange = { searchQuery = it },
-                    modifier = Modifier.fillMaxWidth(),
-                    label = { Text("전체 단어 검색") },
-                    placeholder = { Text("한자, 읽기, 뜻, 태그로 찾기") },
-                    singleLine = true,
+                    label = "전체 단어 검색",
+                    placeholder = "한자, 읽기, 뜻, 태그로 찾기",
                 )
                 Text(
                     text = buildAllWordsFilterSummary(
@@ -1209,6 +1200,119 @@ private fun SectionTitle(text: String) {
 }
 
 @Composable
+private fun AppPrimaryButton(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+) {
+    Button(
+        onClick = onClick,
+        modifier = modifier,
+        enabled = enabled,
+        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 10.dp),
+    ) {
+        Text(text)
+    }
+}
+
+@Composable
+private fun AppSecondaryButton(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+) {
+    OutlinedButton(
+        onClick = onClick,
+        modifier = modifier,
+        enabled = enabled,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 10.dp),
+    ) {
+        Text(text)
+    }
+}
+
+@Composable
+private fun AppActionButton(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    contentDescription: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+) {
+    FilledTonalIconButton(
+        onClick = onClick,
+        modifier = modifier,
+        enabled = enabled,
+        colors = androidx.compose.material3.IconButtonDefaults.filledTonalIconButtonColors(
+            containerColor = MaterialTheme.colorScheme.primaryContainer,
+            contentColor = MaterialTheme.colorScheme.primary,
+            disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+            disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+        ),
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = contentDescription,
+        )
+    }
+}
+
+@Composable
+private fun AppFilterButton(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    OutlinedButton(
+        onClick = onClick,
+        modifier = modifier,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 10.dp),
+    ) {
+        Icon(
+            imageVector = Icons.Outlined.FilterList,
+            contentDescription = null,
+        )
+        Spacer(modifier = Modifier.width(6.dp))
+        Text("필터")
+    }
+}
+
+@Composable
+private fun AppSearchField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    label: String,
+    placeholder: String,
+    modifier: Modifier = Modifier,
+) {
+    OutlinedTextField(
+        value = value,
+        onValueChange = onValueChange,
+        modifier = modifier.fillMaxWidth(),
+        singleLine = true,
+        label = { Text(label) },
+        placeholder = { Text(placeholder) },
+        leadingIcon = {
+            Icon(
+                imageVector = Icons.Outlined.Search,
+                contentDescription = null,
+            )
+        },
+        colors = OutlinedTextFieldDefaults.colors(
+            focusedContainerColor = MaterialTheme.colorScheme.surface,
+            unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+            focusedBorderColor = MaterialTheme.colorScheme.primary,
+            unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+            cursorColor = MaterialTheme.colorScheme.primary,
+        ),
+        shape = MaterialTheme.shapes.large,
+    )
+}
+
+@Composable
 private fun SummaryCard(
     totalWords: Int,
     recentSessionCount: Int,
@@ -1240,19 +1344,10 @@ private fun SummaryCard(
                     color = InkSoft,
                 )
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(
-                        onClick = onCreateCustomDeck,
-                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp),
-                    ) { Text("커스텀 단어장") }
-                    OutlinedButton(
-                        onClick = onOpenAiDeck,
-                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
-                    ) { Text("AI 단어장") }
+                    AppPrimaryButton("커스텀 단어장", onClick = onCreateCustomDeck)
+                    AppSecondaryButton("AI 단어장", onClick = onOpenAiDeck)
                 }
-                OutlinedButton(
-                    onClick = onOpenAllWords,
-                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
-                ) { Text("모든 단어 보기") }
+                AppSecondaryButton("모든 단어 보기", onClick = onOpenAllWords)
             }
             Box(
                 modifier = Modifier
