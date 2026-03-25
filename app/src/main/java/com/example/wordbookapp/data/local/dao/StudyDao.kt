@@ -27,6 +27,24 @@ interface StudyDao {
     @Query(
         """
         SELECT * FROM study_sessions
+        WHERE deckId = :deckId AND completedAt IS NOT NULL
+        ORDER BY completedAt DESC
+        """,
+    )
+    suspend fun getCompletedSessionsForDeck(deckId: Long): List<StudySessionEntity>
+
+    @Query(
+        """
+        SELECT * FROM study_answers
+        WHERE sessionId IN (:sessionIds)
+        ORDER BY answeredAt DESC
+        """,
+    )
+    suspend fun getAnswersForSessionIds(sessionIds: List<Long>): List<StudyAnswerEntity>
+
+    @Query(
+        """
+        SELECT * FROM study_sessions
         WHERE completedAt IS NOT NULL
         ORDER BY completedAt DESC
         LIMIT :limit

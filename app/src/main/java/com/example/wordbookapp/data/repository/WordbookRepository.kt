@@ -6,6 +6,10 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import kotlin.random.Random
 import com.example.wordbookapp.data.local.WordbookDatabase
 import com.example.wordbookapp.data.local.entity.AppSettingEntity
@@ -15,6 +19,11 @@ import com.example.wordbookapp.data.local.entity.StudyAnswerEntity
 import com.example.wordbookapp.data.local.entity.StudySessionEntity
 import com.example.wordbookapp.data.local.entity.WordEntity
 import com.example.wordbookapp.data.model.DeckDetailData
+import com.example.wordbookapp.data.model.DeckDateSessionSummary
+import com.example.wordbookapp.data.model.DeckDateStatsData
+import com.example.wordbookapp.data.model.DeckDailyStat
+import com.example.wordbookapp.data.model.DeckStatsData
+import com.example.wordbookapp.data.model.DeckStatsSummary
 import com.example.wordbookapp.data.model.DeckType
 import com.example.wordbookapp.data.model.ExamSessionData
 import com.example.wordbookapp.data.model.ExamSettings
@@ -346,6 +355,86 @@ class WordbookRepository(
         }
     }
 
+    suspend fun getDeckStats(deckId: Long): DeckStatsData = withContext(Dispatchers.IO) {
+        val deck = requireNotNull(deckDao.getDeckById(deckId))
+        val words = deckDao.getWordsForDeck(deckId)
+        val sessions = studyDao.getCompletedSessionsForDeck(deckId)
+        val sessionIds = sessions.map { it.id }
+        val answers = if (sessionIds.isEmpty()) {
+            emptyList()
+        } else {
+            studyDao.getAnswersForSessionIds(sessionIds)
+        }
+        val wordStats = buildWordStats(words, answers).sortedWith(
+            compareByDescending<WordAggregateStat> { it.wrongCount }
+                .thenByDescending { it.attemptCount }
+                .thenBy { it.word.readingJa }
+        )
+        val studiedWordIds = answers.map { it.wordId }.toSet()
+        val totalQuestionCount = sessions.sumOf { it.totalCount }
+        val totalWrongCount = sessions.sumOf { it.wrongCount }
+        val totalCorrectCount = sessions.sumOf { it.correctCount }
+
+        DeckStatsData(
+            summary = DeckStatsSummary(
+                deckId = deckId,
+                deckName = deck.name,
+                totalWordCount = words.size,
+                studiedWordCount = studiedWordIds.size,
+                unstudiedWordCount = (words.size - studiedWordIds.size).coerceAtLeast(0),
+                completedSessionCount = sessions.size,
+                totalQuestionCount = totalQuestionCount,
+                totalWrongCount = totalWrongCount,
+                accuracyPercent = if (totalQuestionCount == 0) 0 else (totalCorrectCount * 100) / totalQuestionCount,
+            ),
+            topMissedWords = wordStats.filter { it.wrongCount > 0 }.take(10),
+            allWordStats = wordStats,
+            dailyStats = buildDeckDailyStats(sessions),
+        )
+    }
+
+    suspend fun getDeckDateStats(deckId: Long, dateKey: String): DeckDateStatsData = withContext(Dispatchers.IO) {
+        val deck = requireNotNull(deckDao.getDeckById(deckId))
+        val words = deckDao.getWordsForDeck(deckId)
+        val sessions = studyDao.getCompletedSessionsForDeck(deckId)
+        val sessionsForDate = sessions.filter { session ->
+            session.completedAt?.let(::dateKeyFromEpochMillis) == dateKey
+        }
+        val sessionIds = sessionsForDate.map { it.id }
+        val answers = if (sessionIds.isEmpty()) {
+            emptyList()
+        } else {
+            studyDao.getAnswersForSessionIds(sessionIds)
+        }
+        val wordStats = buildWordStats(words, answers).sortedWith(
+            compareByDescending<WordAggregateStat> { it.wrongCount }
+                .thenByDescending { it.attemptCount }
+                .thenBy { it.word.readingJa }
+        )
+        val studiedWordIds = answers.map { it.wordId }.toSet()
+
+        DeckDateStatsData(
+            deckId = deckId,
+            deckName = deck.name,
+            dateKey = dateKey,
+            dateLabel = dateLabelFromKey(dateKey),
+            totalWordCount = words.size,
+            studiedWordCount = studiedWordIds.size,
+            unstudiedWordCount = (words.size - studiedWordIds.size).coerceAtLeast(0),
+            sessions = sessionsForDate.map { session ->
+                DeckDateSessionSummary(
+                    sessionId = session.id,
+                    completedAt = session.completedAt ?: session.startedAt,
+                    totalCount = session.totalCount,
+                    correctCount = session.correctCount,
+                    wrongCount = session.wrongCount,
+                    accuracyPercent = if (session.totalCount == 0) 0 else (session.correctCount * 100) / session.totalCount,
+                )
+            },
+            topMissedWords = wordStats.filter { it.wrongCount > 0 }.take(10),
+        )
+    }
+
     private suspend fun buildAiWordSelection(): List<WordEntity> {
         val words = wordDao.getAllWordsByNewest()
         val answers = studyDao.getAllAnswersNewestFirst()
@@ -394,6 +483,38 @@ class WordbookRepository(
         }
     }
 
+    private fun buildDeckDailyStats(
+        sessions: List<StudySessionEntity>,
+    ): List<DeckDailyStat> {
+        return sessions
+            .filter { it.completedAt != null }
+            .groupBy { session -> dateKeyFromEpochMillis(session.completedAt!!) }
+            .map { (dateKey, items) ->
+                val totalQuestionCount = items.sumOf { it.totalCount }
+                val correctCount = items.sumOf { it.correctCount }
+                val wrongCount = items.sumOf { it.wrongCount }
+                DeckDailyStat(
+                    dateKey = dateKey,
+                    dateLabel = dateLabelFromKey(dateKey),
+                    completedSessionCount = items.size,
+                    totalQuestionCount = totalQuestionCount,
+                    correctCount = correctCount,
+                    wrongCount = wrongCount,
+                    accuracyPercent = if (totalQuestionCount == 0) 0 else (correctCount * 100) / totalQuestionCount,
+                )
+            }
+            .sortedByDescending { it.dateKey }
+    }
+
+    private fun dateKeyFromEpochMillis(epochMillis: Long): String =
+        Instant.ofEpochMilli(epochMillis)
+            .atZone(APP_ZONE_ID)
+            .toLocalDate()
+            .format(DATE_KEY_FORMATTER)
+
+    private fun dateLabelFromKey(dateKey: String): String =
+        DATE_KEY_FORMATTER.parse(dateKey, LocalDate::from).format(DATE_LABEL_FORMATTER)
+
     private fun loadSeedRecords(): List<SeedWordRecord> {
         val text = context.assets.open("jlpt_words.json").bufferedReader().use { it.readText() }
         val array = JSONArray(text)
@@ -441,6 +562,9 @@ class WordbookRepository(
         private const val AI_DECK_SIZE = 30
         private const val SEED_KEY = "seed_v2"
         private const val SEEDED_VALUE = "done"
+        private val APP_ZONE_ID: ZoneId = ZoneId.of("Asia/Seoul")
+        private val DATE_KEY_FORMATTER: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyyMMdd")
+        private val DATE_LABEL_FORMATTER: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy.MM.dd")
 
         private val DEFAULT_DECKS = listOf(
             DefaultDeck("N5", "JLPT N5", "기초 일본어 단어장", "JLPT N5"),

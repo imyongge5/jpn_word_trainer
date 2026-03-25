@@ -81,6 +81,56 @@ data class SessionResult(
     val topMissedWords: List<WordAggregateStat>,
 )
 
+data class DeckStatsSummary(
+    val deckId: Long,
+    val deckName: String,
+    val totalWordCount: Int,
+    val studiedWordCount: Int,
+    val unstudiedWordCount: Int,
+    val completedSessionCount: Int,
+    val totalQuestionCount: Int,
+    val totalWrongCount: Int,
+    val accuracyPercent: Int,
+)
+
+data class DeckDailyStat(
+    val dateKey: String,
+    val dateLabel: String,
+    val completedSessionCount: Int,
+    val totalQuestionCount: Int,
+    val correctCount: Int,
+    val wrongCount: Int,
+    val accuracyPercent: Int,
+)
+
+data class DeckStatsData(
+    val summary: DeckStatsSummary,
+    val topMissedWords: List<WordAggregateStat>,
+    val allWordStats: List<WordAggregateStat>,
+    val dailyStats: List<DeckDailyStat>,
+)
+
+data class DeckDateSessionSummary(
+    val sessionId: Long,
+    val completedAt: Long,
+    val totalCount: Int,
+    val correctCount: Int,
+    val wrongCount: Int,
+    val accuracyPercent: Int,
+)
+
+data class DeckDateStatsData(
+    val deckId: Long,
+    val deckName: String,
+    val dateKey: String,
+    val dateLabel: String,
+    val totalWordCount: Int,
+    val studiedWordCount: Int,
+    val unstudiedWordCount: Int,
+    val sessions: List<DeckDateSessionSummary>,
+    val topMissedWords: List<WordAggregateStat>,
+)
+
 data class HomeData(
     val jlptDecks: List<DeckWithCount>,
     val customDecks: List<DeckWithCount>,
