@@ -622,6 +622,7 @@ class WordbookRepository(
             DefaultDeck("N4", "JLPT N4", "초급 일본어 단어장", "JLPT N4"),
             DefaultDeck("N3", "JLPT N3", "중급 입문 단어장", "JLPT N3"),
             DefaultDeck("N2", "JLPT N2", "중상급 일본어 단어장", "JLPT N2"),
+            DefaultDeck("N1", "JLPT N1", "고급 일본어 단어장", "JLPT N1"),
         )
     }
 }
