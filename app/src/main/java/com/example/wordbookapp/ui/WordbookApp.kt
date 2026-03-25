@@ -156,8 +156,12 @@ fun WordbookApp(
                 arguments = listOf(navArgument("deckId") { type = NavType.LongType }),
             ) { backStackEntry ->
                 val deckId = backStackEntry.arguments?.getLong("deckId") ?: return@composable
-                DeckStatsPlaceholderRoute(
-                    deckId = deckId,
+                val viewModel: DeckStatsViewModel = viewModel(
+                    key = "deck-stats-$deckId",
+                    factory = WordbookViewModelFactory { DeckStatsViewModel(repository, deckId) },
+                )
+                DeckStatsRoute(
+                    viewModel = viewModel,
                     onBack = { navController.popBackStack() },
                 )
             }
@@ -1402,6 +1406,69 @@ private fun SectionTitle(text: String) {
 }
 
 @Composable
+private fun StatsKeyChip(
+    label: String,
+    value: String,
+) {
+    Card(
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = PaperElevated),
+        border = BorderStroke(1.dp, DividerSoft),
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalArrangement = Arrangement.spacedBy(2.dp),
+        ) {
+            Text(label, style = MaterialTheme.typography.labelMedium, color = InkMuted)
+            Text(value, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+        }
+    }
+}
+
+@Composable
+private fun StatsWordRow(
+    stat: com.example.wordbookapp.data.model.WordAggregateStat,
+) {
+    Card(
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(containerColor = PaperElevated),
+        border = BorderStroke(1.dp, DividerSoft),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp, vertical = 12.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(2.dp),
+            ) {
+                Text(
+                    text = stat.word.kanji.ifBlank { stat.word.readingJa },
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Text(
+                    text = stat.word.meaningKo,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = InkSoft,
+                )
+            }
+            Column(
+                horizontalAlignment = Alignment.End,
+                verticalArrangement = Arrangement.spacedBy(2.dp),
+            ) {
+                Text("오답 ${stat.wrongCount}회", style = MaterialTheme.typography.labelLarge, color = SecondaryCoral)
+                Text("응시 ${stat.attemptCount}회", style = MaterialTheme.typography.bodySmall, color = InkMuted)
+                Text("오답률 ${stat.wrongRatePercent}%", style = MaterialTheme.typography.bodySmall, color = InkMuted)
+            }
+        }
+    }
+}
+
+@Composable
 private fun AppPrimaryButton(
     text: String,
     onClick: () -> Unit,
@@ -1566,17 +1633,84 @@ private fun SummaryCard(
 }
 
 @Composable
-private fun DeckStatsPlaceholderRoute(
-    deckId: Long,
+private fun DeckStatsRoute(
+    viewModel: DeckStatsViewModel,
     onBack: () -> Unit,
 ) {
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     ScreenContainer(
         title = "단어장 통계",
         onBack = onBack,
     ) {
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("단어장 통계 화면을 준비 중이에요.")
-            Text("deckId: $deckId", style = MaterialTheme.typography.bodySmall, color = InkMuted)
+        if (uiState.isLoading || uiState.stats == null) {
+            LoadingView()
+            return@ScreenContainer
+        }
+        val stats = uiState.stats ?: return@ScreenContainer
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(stats.summary.deckName, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        StatsKeyChip("완료 시험", "${stats.summary.completedSessionCount}회")
+                        StatsKeyChip("시험 본 단어", "${stats.summary.studiedWordCount}개")
+                        StatsKeyChip("미응시 단어", "${stats.summary.unstudiedWordCount}개")
+                        StatsKeyChip("누적 정답률", "${stats.summary.accuracyPercent}%")
+                    }
+                }
+            }
+            item {
+                SectionTitle("일자별 기록")
+            }
+            if (stats.dailyStats.isEmpty()) {
+                item {
+                    EmptyHint("아직 완료된 시험 기록이 없어요.")
+                }
+            } else {
+                items(stats.dailyStats) { daily ->
+                    Card(
+                        shape = RoundedCornerShape(18.dp),
+                        colors = CardDefaults.cardColors(containerColor = PaperElevated),
+                        border = BorderStroke(1.dp, DividerSoft),
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp),
+                        ) {
+                            Text(daily.dateLabel, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                            Text(
+                                "시험 ${daily.completedSessionCount}회 · 문제 ${daily.totalQuestionCount}개 · 오답 ${daily.wrongCount}개 · 정답률 ${daily.accuracyPercent}%",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = InkSoft,
+                            )
+                        }
+                    }
+                }
+            }
+            item {
+                SectionTitle("자주 틀린 단어")
+            }
+            if (stats.topMissedWords.isEmpty()) {
+                item {
+                    EmptyHint("아직 오답 기록이 없어요.")
+                }
+            } else {
+                items(stats.topMissedWords) { stat ->
+                    StatsWordRow(stat = stat)
+                }
+            }
+            item {
+                SectionTitle("단어별 집계")
+            }
+            items(stats.allWordStats) { stat ->
+                StatsWordRow(stat = stat)
+            }
         }
     }
 }

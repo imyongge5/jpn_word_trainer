@@ -252,6 +252,23 @@ class ResultViewModel(
     }
 }
 
+class DeckStatsViewModel(
+    private val repository: WordbookRepository,
+    private val deckId: Long,
+) : ViewModel() {
+    private val _uiState = MutableStateFlow(DeckStatsUiState())
+    val uiState: StateFlow<DeckStatsUiState> = _uiState
+
+    init {
+        viewModelScope.launch {
+            _uiState.value = DeckStatsUiState(
+                isLoading = false,
+                stats = repository.getDeckStats(deckId),
+            )
+        }
+    }
+}
+
 class WordDetailViewModel(
     private val repository: WordbookRepository,
     private val wordId: Long,
