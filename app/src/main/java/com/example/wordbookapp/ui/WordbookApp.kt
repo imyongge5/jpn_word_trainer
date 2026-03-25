@@ -80,6 +80,7 @@ import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.FilterList
 import androidx.compose.material.icons.outlined.Menu
 import androidx.compose.material.icons.outlined.PlayArrow
+import androidx.compose.material.icons.outlined.QueryStats
 import androidx.compose.material.icons.outlined.Search
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -133,6 +134,8 @@ fun WordbookApp(
                 HomeRoute(
                     viewModel = viewModel,
                     onOpenDeck = { deckId -> navController.navigate("deck/$deckId") },
+                    onOpenDeckStats = { deckId -> navController.navigate("deck_stats/$deckId") },
+                    onStartDeckExam = { deckId -> navController.navigate("exam_setup?deckId=$deckId") },
                     onOpenAiDeck = { navController.navigate("exam_setup?ai=true") },
                     onDeckCreated = { deckId -> navController.navigate("deck/$deckId") },
                     onOpenAllWords = { navController.navigate("all_words") },
@@ -146,6 +149,16 @@ fun WordbookApp(
                     viewModel = viewModel,
                     onBack = { navController.popBackStack() },
                     onOpenWord = { wordId -> navController.navigate("word/$wordId?deckId=-1") },
+                )
+            }
+            composable(
+                route = "deck_stats/{deckId}",
+                arguments = listOf(navArgument("deckId") { type = NavType.LongType }),
+            ) { backStackEntry ->
+                val deckId = backStackEntry.arguments?.getLong("deckId") ?: return@composable
+                DeckStatsPlaceholderRoute(
+                    deckId = deckId,
+                    onBack = { navController.popBackStack() },
                 )
             }
             composable(
@@ -287,6 +300,8 @@ fun WordbookApp(
 private fun HomeRoute(
     viewModel: HomeViewModel,
     onOpenDeck: (Long) -> Unit,
+    onOpenDeckStats: (Long) -> Unit,
+    onStartDeckExam: (Long) -> Unit,
     onOpenAiDeck: () -> Unit,
     onDeckCreated: (Long) -> Unit,
     onOpenAllWords: () -> Unit,
@@ -357,7 +372,12 @@ private fun HomeRoute(
                 SectionTitle("JLPT 기본 단어장")
             }
             items(data.jlptDecks) { deck ->
-                DeckCard(deck = deck, onClick = { onOpenDeck(deck.id) })
+                DeckCard(
+                    deck = deck,
+                    onClick = { onOpenDeck(deck.id) },
+                    onStartExam = { onStartDeckExam(deck.id) },
+                    onOpenStats = { onOpenDeckStats(deck.id) },
+                )
             }
             item {
                 SectionTitle("커스텀 단어장")
@@ -368,7 +388,12 @@ private fun HomeRoute(
                 }
             } else {
                 items(data.customDecks) { deck ->
-                    DeckCard(deck = deck, onClick = { onOpenDeck(deck.id) })
+                    DeckCard(
+                        deck = deck,
+                        onClick = { onOpenDeck(deck.id) },
+                        onStartExam = { onStartDeckExam(deck.id) },
+                        onOpenStats = { onOpenDeckStats(deck.id) },
+                    )
                 }
             }
             if (data.recentSessions.isNotEmpty()) {
@@ -1541,7 +1566,28 @@ private fun SummaryCard(
 }
 
 @Composable
-private fun DeckCard(deck: DeckWithCount, onClick: () -> Unit) {
+private fun DeckStatsPlaceholderRoute(
+    deckId: Long,
+    onBack: () -> Unit,
+) {
+    ScreenContainer(
+        title = "단어장 통계",
+        onBack = onBack,
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("단어장 통계 화면을 준비 중이에요.")
+            Text("deckId: $deckId", style = MaterialTheme.typography.bodySmall, color = InkMuted)
+        }
+    }
+}
+
+@Composable
+private fun DeckCard(
+    deck: DeckWithCount,
+    onClick: () -> Unit,
+    onStartExam: () -> Unit,
+    onOpenStats: () -> Unit,
+) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -1566,6 +1612,30 @@ private fun DeckCard(deck: DeckWithCount, onClick: () -> Unit) {
                     ),
                 )
                 Text("${deck.wordCount}개 단어", color = InkMuted)
+            }
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                FilledTonalIconButton(
+                    onClick = onStartExam,
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.PlayArrow,
+                        contentDescription = "바로 시험 보기",
+                    )
+                }
+                OutlinedButton(
+                    onClick = onOpenStats,
+                    shape = MaterialTheme.shapes.large,
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 8.dp),
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.QueryStats,
+                        contentDescription = "통계 보기",
+                    )
+                }
             }
         }
     }
