@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.PaddingValues
@@ -30,27 +31,25 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DrawerValue
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalDrawerSheet
-import androidx.compose.material3.ModalNavigationDrawer
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.FilterChipDefaults
-import androidx.compose.material3.Surface
-import androidx.compose.material3.rememberDrawerState
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
@@ -63,19 +62,23 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.FilterList
+import androidx.compose.material.icons.outlined.Menu
 import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material.icons.outlined.Search
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -391,6 +394,7 @@ private fun HomeRoute(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun DeckRoute(
     viewModel: DeckDetailViewModel,
@@ -400,144 +404,151 @@ private fun DeckRoute(
     onStartExam: () -> Unit,
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val scope = rememberCoroutineScope()
-    val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
+    var showPartOfSpeech by rememberSaveable { mutableStateOf(true) }
     var showReadingKo by rememberSaveable { mutableStateOf(false) }
+    var showMeaningKo by rememberSaveable { mutableStateOf(true) }
     var showMeaningJa by rememberSaveable { mutableStateOf(false) }
     var searchQuery by rememberSaveable { mutableStateOf("") }
     var selectedPartOfSpeech by rememberSaveable { mutableStateOf("전체") }
     var selectedTag by rememberSaveable { mutableStateOf("전체") }
-    ModalNavigationDrawer(
-        drawerState = drawerState,
-        drawerContent = {
-            ModalDrawerSheet {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp),
-                ) {
-                    Text("필터", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                    OutlinedButton(
-                        onClick = {
-                            selectedPartOfSpeech = "전체"
-                            selectedTag = "전체"
-                        },
-                    ) {
-                        Text("필터 초기화")
-                    }
-                    if (!uiState.isLoading && uiState.deck != null) {
-                        val partOfSpeechOptions = listOf("전체") + uiState.words
-                            .map { it.partOfSpeech.trim() }
-                            .filter { it.isNotBlank() }
-                            .distinct()
-                            .sorted()
-                        val tagOptions = listOf("전체") + uiState.words
-                            .map { it.tag.trim() }
-                            .filter { it.isNotBlank() }
-                            .distinct()
-                            .sorted()
+    var showFilterSheet by rememberSaveable { mutableStateOf(false) }
 
-                        FilterChipRow(
-                            title = "품사",
-                            options = partOfSpeechOptions,
-                            selected = selectedPartOfSpeech,
-                            onSelect = { selectedPartOfSpeech = it },
-                        )
-                        FilterChipRow(
-                            title = "태그",
-                            options = tagOptions,
-                            selected = selectedTag,
-                            onSelect = { selectedTag = it },
-                        )
-                        OptionCheckboxRow(
-                            label = "한국어 읽기 보기",
-                            checked = showReadingKo,
-                            onCheckedChange = { showReadingKo = it },
-                        )
-                        OptionCheckboxRow(
-                            label = "뜻을 일본어로 보기",
-                            checked = showMeaningJa,
-                            onCheckedChange = { showMeaningJa = it },
-                        )
-                    }
+    if (showFilterSheet) {
+        val partOfSpeechOptions = listOf("전체") + uiState.words
+            .map { it.partOfSpeech.trim() }
+            .filter { it.isNotBlank() }
+            .distinct()
+            .sorted()
+        val tagOptions = listOf("전체") + uiState.words
+            .map { it.tag.trim() }
+            .filter { it.isNotBlank() }
+            .distinct()
+            .sorted()
+
+        ModalBottomSheet(
+            onDismissRequest = { showFilterSheet = false },
+            containerColor = PaperElevated,
+        ) {
+            FilterBottomSheetContent(
+                onReset = {
+                    selectedPartOfSpeech = "전체"
+                    selectedTag = "전체"
+                },
+            ) {
+                FilterChipRow(
+                    title = "품사",
+                    options = partOfSpeechOptions,
+                    selected = selectedPartOfSpeech,
+                    onSelect = { selectedPartOfSpeech = it },
+                )
+                FilterChipRow(
+                    title = "태그",
+                    options = tagOptions,
+                    selected = selectedTag,
+                    onSelect = { selectedTag = it },
+                )
+            }
+        }
+    }
+
+    ScreenContainer(
+        title = uiState.deck?.name ?: "단어장",
+        onBack = onBack,
+    ) {
+        if (uiState.isLoading || uiState.deck == null) {
+            LoadingView()
+            return@ScreenContainer
+        }
+        val deck = uiState.deck ?: return@ScreenContainer
+        val filteredWords by remember(
+            uiState.words,
+            searchQuery,
+            selectedPartOfSpeech,
+            selectedTag,
+        ) {
+            derivedStateOf {
+                uiState.words.filter { word ->
+                    val matchesQuery = searchQuery.isBlank() || word.matchesSearchQuery(searchQuery)
+                    val matchesPartOfSpeech = selectedPartOfSpeech == "전체" || word.partOfSpeech == selectedPartOfSpeech
+                    val matchesTag = selectedTag == "전체" || word.tag == selectedTag
+                    matchesQuery && matchesPartOfSpeech && matchesTag
                 }
             }
         }
-    ) {
-        ScreenContainer(
-            title = uiState.deck?.name ?: "단어장",
-            onBack = onBack,
-        ) {
-            if (uiState.isLoading || uiState.deck == null) {
-                LoadingView()
-                return@ScreenContainer
-            }
-            val deck = uiState.deck ?: return@ScreenContainer
-            val filteredWords by remember(
-                uiState.words,
-                searchQuery,
-                selectedPartOfSpeech,
-                selectedTag,
-            ) {
-                derivedStateOf {
-                    uiState.words.filter { word ->
-                        val matchesQuery = searchQuery.isBlank() || word.matchesSearchQuery(searchQuery)
-                        val matchesPartOfSpeech = selectedPartOfSpeech == "전체" || word.partOfSpeech == selectedPartOfSpeech
-                        val matchesTag = selectedTag == "전체" || word.tag == selectedTag
-                        matchesQuery && matchesPartOfSpeech && matchesTag
-                    }
-                }
-            }
 
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text(deck.description, style = MaterialTheme.typography.bodyMedium)
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text(deck.description, style = MaterialTheme.typography.bodyMedium)
+            DisplayOptionRow(
+                showPartOfSpeech = showPartOfSpeech,
+                onShowPartOfSpeechChange = { showPartOfSpeech = it },
+                showReadingKo = showReadingKo,
+                onShowReadingKoChange = { showReadingKo = it },
+                showMeaningKo = showMeaningKo,
+                onShowMeaningKoChange = { showMeaningKo = it },
+                showMeaningJa = showMeaningJa,
+                onShowMeaningJaChange = { showMeaningJa = it },
+            )
+            AppSearchField(
+                value = searchQuery,
+                onValueChange = { searchQuery = it },
+                label = "단어 검색",
+                placeholder = "한자, 읽기, 뜻, 태그로 찾기",
+            )
+            Text(
+                text = buildFilterSummary(
+                    filteredCount = filteredWords.size,
+                    totalCount = uiState.words.size,
+                    selectedPartOfSpeech = selectedPartOfSpeech,
+                    selectedTag = selectedTag,
+                ),
+                style = MaterialTheme.typography.labelMedium,
+                color = InkMuted,
+            )
+            HorizontalDivider()
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                AppCompactActionButton(
+                    icon = Icons.Outlined.Menu,
+                    text = "필터",
+                    contentDescription = "필터",
+                    onClick = { showFilterSheet = true },
+                )
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    AppActionButton(
+                    AppCompactActionButton(
+                        icon = Icons.Outlined.PlayArrow,
+                        text = "시험",
+                        contentDescription = "시험 시작",
+                        enabled = uiState.words.isNotEmpty(),
+                        highlighted = true,
+                        onClick = onStartExam,
+                    )
+                    AppCompactActionButton(
                         icon = Icons.Outlined.Add,
+                        text = "추가",
                         contentDescription = "단어 추가",
                         onClick = onAddWord,
                     )
-                    AppActionButton(
-                        icon = Icons.Outlined.PlayArrow,
-                        contentDescription = "시험 시작",
-                        enabled = uiState.words.isNotEmpty(),
-                        onClick = onStartExam,
-                    )
-                    AppFilterButton(onClick = { scope.launch { drawerState.open() } })
                 }
-                AppSearchField(
-                    value = searchQuery,
-                    onValueChange = { searchQuery = it },
-                    label = "단어 검색",
-                    placeholder = "한자, 읽기, 뜻, 태그로 찾기",
-                )
-                Text(
-                    text = buildFilterSummary(
-                        filteredCount = filteredWords.size,
-                        totalCount = uiState.words.size,
-                        selectedPartOfSpeech = selectedPartOfSpeech,
-                        selectedTag = selectedTag,
-                    ),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = InkMuted,
-                )
-                HorizontalDivider()
-                if (uiState.words.isEmpty()) {
-                    EmptyHint("이 단어장에는 아직 단어가 없어요.")
-                } else if (filteredWords.isEmpty()) {
-                    EmptyHint("조건에 맞는 단어가 없어요.")
-                } else {
-                    LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        items(filteredWords) { word ->
-                            WordRow(
-                                word = word,
-                                showReadingKo = showReadingKo,
-                                showMeaningJa = showMeaningJa,
-                                allWords = filteredWords,
-                                onClick = { onOpenWord(word.id) },
-                            )
-                        }
+            }
+            if (uiState.words.isEmpty()) {
+                EmptyHint("이 단어장에는 아직 단어가 없어요.")
+            } else if (filteredWords.isEmpty()) {
+                EmptyHint("조건에 맞는 단어가 없어요.")
+            } else {
+                LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    items(filteredWords) { word ->
+                        WordRow(
+                            word = word,
+                            showPartOfSpeech = showPartOfSpeech,
+                            showReadingKo = showReadingKo,
+                            showMeaningKo = showMeaningKo,
+                            showMeaningJa = showMeaningJa,
+                            allWords = filteredWords,
+                            onClick = { onOpenWord(word.id) },
+                        )
                     }
                 }
             }
@@ -545,6 +556,7 @@ private fun DeckRoute(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun AllWordsRoute(
     viewModel: AllWordsViewModel,
@@ -552,14 +564,15 @@ private fun AllWordsRoute(
     onOpenWord: (Long) -> Unit,
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val scope = rememberCoroutineScope()
-    val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
+    var showPartOfSpeech by rememberSaveable { mutableStateOf(true) }
     var showReadingKo by rememberSaveable { mutableStateOf(false) }
+    var showMeaningKo by rememberSaveable { mutableStateOf(true) }
     var showMeaningJa by rememberSaveable { mutableStateOf(false) }
     var searchQuery by rememberSaveable { mutableStateOf("") }
     var selectedDeckId by rememberSaveable { mutableStateOf(-1L) }
     var selectedPartOfSpeech by rememberSaveable { mutableStateOf("전체") }
     var selectedTag by rememberSaveable { mutableStateOf("전체") }
+    var showFilterSheet by rememberSaveable { mutableStateOf(false) }
 
     val deckOptions = remember(uiState.decks) {
         listOf(-1L to "전체 단어장") + uiState.decks.map { it.id to it.name }
@@ -600,103 +613,105 @@ private fun AllWordsRoute(
         }
     }
 
-    ModalNavigationDrawer(
-        drawerState = drawerState,
-        drawerContent = {
-            ModalDrawerSheet {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp),
-                ) {
-                    Text("필터", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                    OutlinedButton(
-                        onClick = {
-                            selectedDeckId = -1L
-                            selectedPartOfSpeech = "전체"
-                            selectedTag = "전체"
-                        },
-                    ) {
-                        Text("필터 초기화")
-                    }
-                    FilterChipIdRow(
-                        title = "단어장",
-                        options = deckOptions,
-                        selected = selectedDeckId,
-                        onSelect = { selectedDeckId = it },
-                    )
-                    FilterChipRow(
-                        title = "품사",
-                        options = partOfSpeechOptions,
-                        selected = selectedPartOfSpeech,
-                        onSelect = { selectedPartOfSpeech = it },
-                    )
-                    FilterChipRow(
-                        title = "태그",
-                        options = tagOptions,
-                        selected = selectedTag,
-                        onSelect = { selectedTag = it },
-                    )
-                    OptionCheckboxRow(
-                        label = "한국어 읽기 보기",
-                        checked = showReadingKo,
-                        onCheckedChange = { showReadingKo = it },
-                    )
-                    OptionCheckboxRow(
-                        label = "뜻을 일본어로 보기",
-                        checked = showMeaningJa,
-                        onCheckedChange = { showMeaningJa = it },
-                    )
-                }
-            }
-        },
-    ) {
-        ScreenContainer(
-            title = "모든 단어",
-            onBack = onBack,
+    if (showFilterSheet) {
+        ModalBottomSheet(
+            onDismissRequest = { showFilterSheet = false },
+            containerColor = PaperElevated,
         ) {
-            if (uiState.isLoading) {
-                LoadingView()
-                return@ScreenContainer
+            FilterBottomSheetContent(
+                onReset = {
+                    selectedDeckId = -1L
+                    selectedPartOfSpeech = "전체"
+                    selectedTag = "전체"
+                },
+            ) {
+                FilterChipIdRow(
+                    title = "단어장",
+                    options = deckOptions,
+                    selected = selectedDeckId,
+                    onSelect = { selectedDeckId = it },
+                )
+                FilterChipRow(
+                    title = "품사",
+                    options = partOfSpeechOptions,
+                    selected = selectedPartOfSpeech,
+                    onSelect = { selectedPartOfSpeech = it },
+                )
+                FilterChipRow(
+                    title = "태그",
+                    options = tagOptions,
+                    selected = selectedTag,
+                    onSelect = { selectedTag = it },
+                )
             }
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    AppFilterButton(onClick = { scope.launch { drawerState.open() } })
-                }
-                AppSearchField(
-                    value = searchQuery,
-                    onValueChange = { searchQuery = it },
-                    label = "전체 단어 검색",
-                    placeholder = "한자, 읽기, 뜻, 태그로 찾기",
+        }
+    }
+
+    ScreenContainer(
+        title = "모든 단어",
+        onBack = onBack,
+    ) {
+        if (uiState.isLoading) {
+            LoadingView()
+            return@ScreenContainer
+        }
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            DisplayOptionRow(
+                showPartOfSpeech = showPartOfSpeech,
+                onShowPartOfSpeechChange = { showPartOfSpeech = it },
+                showReadingKo = showReadingKo,
+                onShowReadingKoChange = { showReadingKo = it },
+                showMeaningKo = showMeaningKo,
+                onShowMeaningKoChange = { showMeaningKo = it },
+                showMeaningJa = showMeaningJa,
+                onShowMeaningJaChange = { showMeaningJa = it },
+            )
+            AppSearchField(
+                value = searchQuery,
+                onValueChange = { searchQuery = it },
+                label = "전체 단어 검색",
+                placeholder = "한자, 읽기, 뜻, 태그로 찾기",
+            )
+            Text(
+                text = buildAllWordsFilterSummary(
+                    filteredCount = filteredWords.size,
+                    totalCount = uiState.words.size,
+                    selectedDeckName = deckOptions.firstOrNull { it.first == selectedDeckId }?.second ?: "전체 단어장",
+                    selectedPartOfSpeech = selectedPartOfSpeech,
+                    selectedTag = selectedTag,
+                ),
+                style = MaterialTheme.typography.labelMedium,
+                color = InkMuted,
+            )
+            HorizontalDivider()
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.Start,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                AppCompactActionButton(
+                    icon = Icons.Outlined.Menu,
+                    text = "필터",
+                    contentDescription = "필터",
+                    onClick = { showFilterSheet = true },
                 )
-                Text(
-                    text = buildAllWordsFilterSummary(
-                        filteredCount = filteredWords.size,
-                        totalCount = uiState.words.size,
-                        selectedDeckName = deckOptions.firstOrNull { it.first == selectedDeckId }?.second ?: "전체 단어장",
-                        selectedPartOfSpeech = selectedPartOfSpeech,
-                        selectedTag = selectedTag,
-                    ),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = InkMuted,
-                )
-                HorizontalDivider()
-                if (uiState.words.isEmpty()) {
-                    EmptyHint("등록된 단어가 아직 없어요.")
-                } else if (filteredWords.isEmpty()) {
-                    EmptyHint("조건에 맞는 단어가 없어요.")
-                } else {
-                    LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        items(filteredWords) { word ->
-                            WordRow(
-                                word = word,
-                                showReadingKo = showReadingKo,
-                                showMeaningJa = showMeaningJa,
-                                allWords = filteredWords,
-                                onClick = { onOpenWord(word.id) },
-                            )
-                        }
+            }
+            if (uiState.words.isEmpty()) {
+                EmptyHint("등록된 단어가 아직 없어요.")
+            } else if (filteredWords.isEmpty()) {
+                EmptyHint("조건에 맞는 단어가 없어요.")
+            } else {
+                LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    items(filteredWords) { word ->
+                        WordRow(
+                            word = word,
+                            showPartOfSpeech = showPartOfSpeech,
+                            showReadingKo = showReadingKo,
+                            showMeaningKo = showMeaningKo,
+                            showMeaningJa = showMeaningJa,
+                            allWords = filteredWords,
+                            onClick = { onOpenWord(word.id) },
+                        )
                     }
                 }
             }
@@ -1166,36 +1181,147 @@ private fun ScreenContainer(
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        Surface(
+        Row(
             modifier = Modifier.fillMaxWidth(),
-            shape = MaterialTheme.shapes.extraLarge,
-            color = MaterialTheme.colorScheme.surfaceVariant,
-            tonalElevation = 1.dp,
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
         ) {
+            Text(title, style = MaterialTheme.typography.headlineSmall)
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(title, style = MaterialTheme.typography.headlineSmall)
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    actions?.invoke()
-                    if (onBack != null) {
-                        TextButton(
-                            onClick = onBack,
-                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
-                        ) { Text("뒤로") }
+                actions?.invoke()
+                if (onBack != null) {
+                    AppHeaderIconButton(
+                        onClick = onBack,
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
+                            contentDescription = "뒤로",
+                        )
                     }
                 }
             }
         }
         content()
+    }
+}
+
+@Composable
+private fun AppHeaderIconButton(
+    onClick: () -> Unit,
+    content: @Composable () -> Unit,
+) {
+    OutlinedButton(
+        onClick = onClick,
+        shape = MaterialTheme.shapes.large,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp),
+    ) {
+        content()
+    }
+}
+
+@Composable
+private fun DisplayOptionRow(
+    showPartOfSpeech: Boolean,
+    onShowPartOfSpeechChange: (Boolean) -> Unit,
+    showReadingKo: Boolean,
+    onShowReadingKoChange: (Boolean) -> Unit,
+    showMeaningKo: Boolean,
+    onShowMeaningKoChange: (Boolean) -> Unit,
+    showMeaningJa: Boolean,
+    onShowMeaningJaChange: (Boolean) -> Unit,
+) {
+    FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalArrangement = Arrangement.spacedBy(2.dp),
+    ) {
+        InlineOptionCheckbox(
+            label = "품사",
+            checked = showPartOfSpeech,
+            onCheckedChange = onShowPartOfSpeechChange,
+        )
+        InlineOptionCheckbox(
+            label = "한글 읽기",
+            checked = showReadingKo,
+            onCheckedChange = onShowReadingKoChange,
+        )
+        InlineOptionCheckbox(
+            label = "한글 뜻",
+            checked = showMeaningKo,
+            onCheckedChange = onShowMeaningKoChange,
+        )
+        InlineOptionCheckbox(
+            label = "일본어 뜻",
+            checked = showMeaningJa,
+            onCheckedChange = onShowMeaningJaChange,
+        )
+    }
+}
+
+@Composable
+private fun InlineOptionCheckbox(
+    label: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .clip(MaterialTheme.shapes.medium)
+            .clickable { onCheckedChange(!checked) }
+            .padding(horizontal = 1.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(0.dp),
+    ) {
+        Checkbox(
+            checked = checked,
+            onCheckedChange = onCheckedChange,
+            modifier = Modifier.padding(0.dp),
+        )
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            color = InkSoft,
+        )
+    }
+}
+
+@Composable
+private fun AppCompactActionButton(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    text: String,
+    contentDescription: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    highlighted: Boolean = false,
+) {
+    OutlinedButton(
+        onClick = onClick,
+        modifier = modifier,
+        enabled = enabled,
+        shape = MaterialTheme.shapes.large,
+        border = BorderStroke(
+            1.dp,
+            if (highlighted) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.outline,
+        ),
+        colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(
+            containerColor = if (highlighted) MaterialTheme.colorScheme.primaryContainer else Color.Transparent,
+            contentColor = if (highlighted) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+        ),
+        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 7.dp),
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = contentDescription,
+            modifier = Modifier.padding(end = 4.dp),
+        )
+        Text(
+            text = text,
+            style = MaterialTheme.typography.labelLarge,
+        )
     }
 }
 
@@ -1283,19 +1409,13 @@ private fun AppFilterButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    OutlinedButton(
+    AppHeaderIconButton(
         onClick = onClick,
-        modifier = modifier,
-        shape = MaterialTheme.shapes.large,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
-        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 10.dp),
     ) {
         Icon(
-            imageVector = Icons.Outlined.FilterList,
-            contentDescription = null,
+            imageVector = Icons.Outlined.Menu,
+            contentDescription = "필터",
         )
-        Spacer(modifier = Modifier.width(6.dp))
-        Text("필터")
     }
 }
 
@@ -1418,11 +1538,14 @@ private fun DeckCard(deck: DeckWithCount, onClick: () -> Unit) {
 @Composable
 private fun WordRow(
     word: WordEntity,
+    showPartOfSpeech: Boolean,
     showReadingKo: Boolean,
+    showMeaningKo: Boolean,
     showMeaningJa: Boolean,
     allWords: List<WordEntity>,
     onClick: () -> Unit,
 ) {
+    val hasMeaningColumn = showMeaningKo || showMeaningJa
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -1448,14 +1571,16 @@ private fun WordRow(
                 verticalAlignment = Alignment.Top,
             ) {
                 Column(
-                    modifier = Modifier.weight(0.42f),
+                    modifier = Modifier.weight(if (hasMeaningColumn) 0.42f else 1f),
                     verticalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
-                    Text(
-                        text = word.partOfSpeech.ifBlank { word.tag.ifBlank { "단어" } },
-                        style = MaterialTheme.typography.labelMedium,
-                        color = PrimaryBlue,
-                    )
+                    if (showPartOfSpeech) {
+                        Text(
+                            text = word.partOfSpeech.ifBlank { word.tag.ifBlank { "단어" } },
+                            style = MaterialTheme.typography.labelMedium,
+                            color = PrimaryBlue,
+                        )
+                    }
                     RubyFieldText(
                         word = word,
                         field = WordField.KANJI,
@@ -1471,47 +1596,37 @@ private fun WordRow(
                         )
                     }
                 }
-                Column(
-                    modifier = Modifier.weight(0.58f),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    Text(
-                        text = if (showMeaningJa) "뜻(일본어)" else "뜻(한국어)",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = InkMuted,
-                    )
-                    if (showMeaningJa && word.meaningJa.isNotBlank()) {
-                        NonInteractiveJapaneseText(
-                            text = word.meaningJa,
-                            currentWordId = word.id,
-                            allWords = allWords,
-                            baseStyle = MaterialTheme.typography.bodyMedium.copy(
-                                fontWeight = FontWeight.Medium,
-                                lineHeight = 20.sp,
-                                letterSpacing = (-0.1).sp,
-                            ),
-                            rubyStyle = MaterialTheme.typography.labelSmall.copy(
-                                fontSize = 9.sp,
-                                lineHeight = 9.sp,
-                                letterSpacing = (-0.1).sp,
-                            ),
-                            baseColor = InkSoft,
-                            rubyColor = SecondaryCoral,
-                        )
-                    } else {
-                        Text(
-                            text = word.meaningKo,
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = InkSoft,
-                        )
-                    }
-                    val secondaryMeaning = if (showMeaningJa) word.meaningKo else word.meaningJa
-                    if (secondaryMeaning.isNotBlank()) {
-                        Text(
-                            text = secondaryMeaning,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = InkMuted,
-                        )
+                if (hasMeaningColumn) {
+                    Column(
+                        modifier = Modifier.weight(0.58f),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        if (showMeaningKo && word.meaningKo.isNotBlank()) {
+                            Text(
+                                text = word.meaningKo,
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = InkSoft,
+                            )
+                        }
+                        if (showMeaningJa && word.meaningJa.isNotBlank()) {
+                            NonInteractiveJapaneseText(
+                                text = word.meaningJa,
+                                currentWordId = word.id,
+                                allWords = allWords,
+                                baseStyle = MaterialTheme.typography.bodyMedium.copy(
+                                    fontWeight = FontWeight.Medium,
+                                    lineHeight = 20.sp,
+                                    letterSpacing = (-0.1).sp,
+                                ),
+                                rubyStyle = MaterialTheme.typography.labelSmall.copy(
+                                    fontSize = 9.sp,
+                                    lineHeight = 9.sp,
+                                    letterSpacing = (-0.1).sp,
+                                ),
+                                baseColor = InkSoft,
+                                rubyColor = SecondaryCoral,
+                            )
+                        }
                     }
                 }
             }
@@ -1788,6 +1903,7 @@ private fun InlineRubyText(
     val parts = remember(displayText, readingText) {
         splitRubyToken(displayText, readingText)
     }
+    val rubySlotHeight = rememberRubySlotHeight(rubyStyle)
 
     Row(
         verticalAlignment = Alignment.Bottom,
@@ -1806,11 +1922,16 @@ private fun InlineRubyText(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(0.dp),
                 ) {
-                    Text(
-                        text = part.reading,
-                        style = rubyStyle,
-                        color = rubyColor,
-                    )
+                    Box(
+                        modifier = Modifier.height(rubySlotHeight),
+                        contentAlignment = Alignment.BottomCenter,
+                    ) {
+                        Text(
+                            text = part.reading,
+                            style = rubyStyle,
+                            color = rubyColor,
+                        )
+                    }
                     Text(
                         text = part.base,
                         style = baseStyle,
@@ -1829,14 +1950,12 @@ private fun SentencePlainSegment(
     rubyStyle: TextStyle,
     baseColor: Color,
 ) {
+    val rubySlotHeight = rememberRubySlotHeight(rubyStyle)
+
     Column(
-        verticalArrangement = Arrangement.spacedBy((-1).dp),
+        verticalArrangement = Arrangement.spacedBy(0.dp),
     ) {
-        Text(
-            text = " ",
-            style = rubyStyle,
-            color = Color.Transparent,
-        )
+        Box(modifier = Modifier.height(rubySlotHeight))
         Text(
             text = text,
             style = baseStyle,
@@ -1845,10 +1964,27 @@ private fun SentencePlainSegment(
     }
 }
 
+@Composable
+private fun rememberRubySlotHeight(rubyStyle: TextStyle) = with(LocalDensity.current) {
+    val lineHeight: TextUnit = if (rubyStyle.lineHeight != TextUnit.Unspecified) {
+        rubyStyle.lineHeight
+    } else {
+        rubyStyle.fontSize * 1.15f
+    }
+    lineHeight.toDp()
+}
+
 private sealed interface RubyInlinePart {
     data class Plain(val text: String) : RubyInlinePart
     data class Annotated(val base: String, val reading: String) : RubyInlinePart
 }
+
+private data class RubyMatch(
+    val baseStart: Int,
+    val baseEndExclusive: Int,
+    val readingStart: Int,
+    val readingEndExclusive: Int,
+)
 
 private fun splitRubyToken(
     displayText: String,
@@ -1863,7 +1999,7 @@ private fun splitRubyToken(
     while (
         left < maxPrefix &&
         displayText[left] == readingText[left] &&
-        displayText[left].isKana()
+        !displayText[left].isKanji()
     ) {
         left += 1
     }
@@ -1874,7 +2010,7 @@ private fun splitRubyToken(
         displayRight > left &&
         readingRight > left &&
         displayText[displayRight - 1] == readingText[readingRight - 1] &&
-        displayText[displayRight - 1].isKana()
+        !displayText[displayRight - 1].isKanji()
     ) {
         displayRight -= 1
         readingRight -= 1
@@ -1889,9 +2025,10 @@ private fun splitRubyToken(
         return listOf(RubyInlinePart.Plain(displayText))
     }
 
+    val segmentedCore = splitRubyCore(coreBase, coreReading)
     return buildList {
         if (prefix.isNotEmpty()) add(RubyInlinePart.Plain(prefix))
-        add(RubyInlinePart.Annotated(coreBase, coreReading))
+        addAll(segmentedCore)
         if (suffix.isNotEmpty()) add(RubyInlinePart.Plain(suffix))
     }
 }
@@ -1901,6 +2038,97 @@ private fun Char.isKana(): Boolean =
 
 private fun Char.isKanji(): Boolean =
     this in '\u4e00'..'\u9fff' || this in '\u3400'..'\u4dbf'
+
+private fun splitRubyCore(
+    baseText: String,
+    readingText: String,
+): List<RubyInlinePart> {
+    if (baseText.all(Char::isKanji)) {
+        return listOf(RubyInlinePart.Annotated(baseText, readingText))
+    }
+
+    val matches = mutableListOf<RubyMatch>()
+    val found = matchRubySegments(baseText, readingText, 0, 0, matches)
+    if (!found || matches.isEmpty()) {
+        return listOf(RubyInlinePart.Annotated(baseText, readingText))
+    }
+
+    val sortedMatches = matches.sortedBy { it.baseStart }
+    return buildList {
+        var baseCursor = 0
+        sortedMatches.forEach { match ->
+            if (match.baseStart > baseCursor) {
+                add(RubyInlinePart.Plain(baseText.substring(baseCursor, match.baseStart)))
+            }
+            add(
+                RubyInlinePart.Annotated(
+                    base = baseText.substring(match.baseStart, match.baseEndExclusive),
+                    reading = readingText.substring(match.readingStart, match.readingEndExclusive),
+                )
+            )
+            baseCursor = match.baseEndExclusive
+        }
+        if (baseCursor < baseText.length) {
+            add(RubyInlinePart.Plain(baseText.substring(baseCursor)))
+        }
+    }
+}
+
+private fun matchRubySegments(
+    baseText: String,
+    readingText: String,
+    baseIndex: Int,
+    readingIndex: Int,
+    matches: MutableList<RubyMatch>,
+): Boolean {
+    if (baseIndex == baseText.length && readingIndex == readingText.length) {
+        return true
+    }
+    if (baseIndex >= baseText.length || readingIndex > readingText.length) {
+        return false
+    }
+
+    val currentChar = baseText[baseIndex]
+    if (!currentChar.isKanji()) {
+        if (readingIndex >= readingText.length || currentChar != readingText[readingIndex]) {
+            return false
+        }
+        return matchRubySegments(baseText, readingText, baseIndex + 1, readingIndex + 1, matches)
+    }
+
+    val nextBaseIndex = baseIndex + 1
+    var nextLiteralChar: Char? = null
+    for (i in nextBaseIndex until baseText.length) {
+        if (!baseText[i].isKanji()) {
+            nextLiteralChar = baseText[i]
+            break
+        }
+    }
+
+    val maxReadingEndExclusive = if (nextLiteralChar == null) {
+        readingText.length
+    } else {
+        val candidate = readingText.indexOf(nextLiteralChar, readingIndex)
+        if (candidate == -1) return false
+        candidate
+    }
+
+    for (readingEndExclusive in (readingIndex + 1)..maxReadingEndExclusive) {
+        matches.add(
+            RubyMatch(
+                baseStart = baseIndex,
+                baseEndExclusive = baseIndex + 1,
+                readingStart = readingIndex,
+                readingEndExclusive = readingEndExclusive,
+            )
+        )
+        if (matchRubySegments(baseText, readingText, nextBaseIndex, readingEndExclusive, matches)) {
+            return true
+        }
+        matches.removeAt(matches.lastIndex)
+    }
+    return false
+}
 
 @Composable
 private fun EditorField(label: String, value: String, onValueChange: (String) -> Unit) {
@@ -1940,6 +2168,32 @@ private fun <T> SettingGroup(
 @Composable
 private fun EmptyHint(text: String) {
     Text(text, style = MaterialTheme.typography.bodyMedium)
+}
+
+@Composable
+private fun FilterBottomSheetContent(
+    onReset: () -> Unit,
+    content: @Composable () -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp, vertical = 8.dp)
+            .padding(bottom = 20.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text("필터", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            OutlinedButton(onClick = onReset) {
+                Text("초기화")
+            }
+        }
+        content()
+    }
 }
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -2121,39 +2375,44 @@ private fun RubyFieldText(
     val mainText = displayField(word, field)
     val rubyText = rubyTextFor(word, field)
 
-    if (rubyText == null) {
-        Text(
-            text = mainText,
-            modifier = modifier,
-            style = mainStyle,
-            textAlign = if (alignCenter) TextAlign.Center else TextAlign.Start,
-        )
-        return
-    }
-
-    Column(
+    Box(
         modifier = modifier.then(
             if (alignCenter) Modifier.fillMaxWidth() else Modifier.wrapContentWidth(),
         ),
-        horizontalAlignment = if (alignCenter) Alignment.CenterHorizontally else Alignment.Start,
-        verticalArrangement = Arrangement.spacedBy(1.dp),
+        contentAlignment = if (alignCenter) Alignment.Center else Alignment.CenterStart,
     ) {
-        Text(
-            text = rubyText,
-            style = rubyStyle,
-            color = rubyColor,
-            textAlign = if (alignCenter) TextAlign.Center else TextAlign.Start,
-        )
-        Text(
-            text = mainText,
-            style = mainStyle,
-            textAlign = if (alignCenter) TextAlign.Center else TextAlign.Start,
-        )
+        if (rubyText == null) {
+            Column(
+                horizontalAlignment = if (alignCenter) Alignment.CenterHorizontally else Alignment.Start,
+                verticalArrangement = Arrangement.spacedBy(0.dp),
+            ) {
+                Text(
+                    text = " ",
+                    style = rubyStyle,
+                    color = Color.Transparent,
+                    textAlign = if (alignCenter) TextAlign.Center else TextAlign.Start,
+                )
+                Text(
+                    text = mainText,
+                    style = mainStyle,
+                    textAlign = if (alignCenter) TextAlign.Center else TextAlign.Start,
+                )
+            }
+        } else {
+            InlineRubyText(
+                displayText = mainText,
+                readingText = rubyText,
+                baseStyle = mainStyle,
+                rubyStyle = rubyStyle,
+                baseColor = LocalContentColor.current,
+                rubyColor = rubyColor,
+            )
+        }
     }
 }
 
 private fun rubyTextFor(word: WordEntity, field: WordField): String? = when (field) {
-    WordField.KANJI -> word.readingJa.takeIf { it.isNotBlank() }
+    WordField.KANJI -> word.readingJa.takeIf { it.isNotBlank() && word.kanji.any(Char::isKanji) }
     WordField.READING_JA -> null
     WordField.READING_KO -> null
     WordField.MEANING_KO -> null
