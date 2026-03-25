@@ -13,6 +13,7 @@ class AppContainer(context: Context) {
         WordbookDatabase::class.java,
         "wordbook.db",
     )
+        .createFromAsset("databases/wordbook.db")
         .addMigrations(MIGRATION_1_2)
         .build()
 

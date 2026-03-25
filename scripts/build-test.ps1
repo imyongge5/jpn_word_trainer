@@ -11,6 +11,7 @@ $ErrorActionPreference = "Stop"
 $projectRoot = Split-Path -Parent $PSScriptRoot
 $javaHome = "<ANDROID_JBR>"
 $sdkRoot = "<ANDROID_SDK>"
+$venvPython = Join-Path $projectRoot "venv\Scripts\python.exe"
 
 if (-not (Test-Path (Join-Path $projectRoot "gradlew.bat"))) {
     throw "gradlew.bat not found in $projectRoot"
@@ -22,6 +23,20 @@ if (-not (Test-Path $javaHome)) {
 
 if (-not (Test-Path $sdkRoot)) {
     throw "ANDROID_SDK_ROOT path not found: $sdkRoot"
+}
+
+if (-not (Test-Path $venvPython)) {
+    Write-Host "Creating Python virtual environment"
+    Push-Location $projectRoot
+    try {
+        python -m venv venv
+        if ($LASTEXITCODE -ne 0) {
+            throw "Failed to create Python virtual environment"
+        }
+    }
+    finally {
+        Pop-Location
+    }
 }
 
 $env:JAVA_HOME = $javaHome
@@ -38,6 +53,12 @@ $env:Path = @(
 
 Push-Location $projectRoot
 try {
+    Write-Host "Generating prebuilt seed database"
+    & $venvPython ".\scripts\generate_seed_db.py"
+    if ($LASTEXITCODE -ne 0) {
+        throw "Seed database generation failed with exit code $LASTEXITCODE"
+    }
+
     Write-Host "Running Gradle task: $GradleTask"
     & ".\gradlew.bat" $GradleTask
     if ($LASTEXITCODE -ne 0) {
