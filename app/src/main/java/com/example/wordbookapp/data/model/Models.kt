@@ -9,6 +9,21 @@ enum class DeckType {
     CUSTOM,
 }
 
+enum class ThemePreset(
+    val storageValue: String,
+    val displayName: String,
+) {
+    DEFAULT_LIGHT("default_light", "기본 라이트"),
+    VSCODE_DARK_MODERN("vscode_dark_modern", "VS Code Dark Modern"),
+    VSCODE_HIGH_CONTRAST("vscode_high_contrast", "VS Code High Contrast"),
+    ONE_DARK_PRO("one_dark_pro", "One Dark Pro");
+
+    companion object {
+        fun fromStorage(value: String?): ThemePreset =
+            entries.firstOrNull { it.storageValue == value } ?: DEFAULT_LIGHT
+    }
+}
+
 enum class WordOrder {
     SEQUENTIAL,
     RANDOM,

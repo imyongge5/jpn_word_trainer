@@ -4,6 +4,7 @@ import android.content.Context
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import java.time.Instant
@@ -30,6 +31,7 @@ import com.example.wordbookapp.data.model.ExamSettings
 import com.example.wordbookapp.data.model.HomeData
 import com.example.wordbookapp.data.model.SessionResult
 import com.example.wordbookapp.data.model.SessionSummary
+import com.example.wordbookapp.data.model.ThemePreset
 import com.example.wordbookapp.data.model.WordAggregateStat
 import com.example.wordbookapp.data.model.WordDetailData
 import com.example.wordbookapp.data.model.WordDraft
@@ -57,6 +59,17 @@ class WordbookRepository(
     }
 
     fun observeDeckWords(deckId: Long): Flow<List<WordEntity>> = deckDao.observeWordsForDeck(deckId)
+
+    fun observeThemePreset(): Flow<ThemePreset> =
+        appSettingDao.observeValue(THEME_PRESET_KEY).map { ThemePreset.fromStorage(it) }
+
+    suspend fun getThemePreset(): ThemePreset = withContext(Dispatchers.IO) {
+        ThemePreset.fromStorage(appSettingDao.getValue(THEME_PRESET_KEY))
+    }
+
+    suspend fun saveThemePreset(preset: ThemePreset) = withContext(Dispatchers.IO) {
+        appSettingDao.upsert(AppSettingEntity(THEME_PRESET_KEY, preset.storageValue))
+    }
 
     suspend fun ensureSeeded() = withContext(Dispatchers.IO) {
         val now = System.currentTimeMillis()
@@ -562,6 +575,7 @@ class WordbookRepository(
         private const val AI_DECK_SIZE = 30
         private const val SEED_KEY = "seed_v2"
         private const val SEEDED_VALUE = "done"
+        private const val THEME_PRESET_KEY = "theme_preset"
         private val APP_ZONE_ID: ZoneId = ZoneId.of("Asia/Seoul")
         private val DATE_KEY_FORMATTER: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyyMMdd")
         private val DATE_LABEL_FORMATTER: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy.MM.dd")

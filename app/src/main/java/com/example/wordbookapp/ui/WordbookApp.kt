@@ -33,6 +33,10 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExposedDropdownMenuAnchorType
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
@@ -83,6 +87,7 @@ import androidx.compose.material.icons.outlined.Menu
 import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material.icons.outlined.QueryStats
 import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material.icons.outlined.Settings
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.activity.compose.BackHandler
@@ -95,6 +100,7 @@ import androidx.navigation.navArgument
 import kotlinx.coroutines.launch
 import com.example.wordbookapp.data.local.entity.WordEntity
 import com.example.wordbookapp.data.model.DeckWithCount
+import com.example.wordbookapp.data.model.ThemePreset
 import com.example.wordbookapp.data.model.WordField
 import com.example.wordbookapp.data.model.WordOrder
 import com.example.wordbookapp.data.repository.WordbookRepository
@@ -109,10 +115,15 @@ import com.example.wordbookapp.ui.theme.PrimaryBlue
 import com.example.wordbookapp.ui.theme.PrimaryBlueSoft
 import com.example.wordbookapp.ui.theme.SecondaryCoral
 import com.example.wordbookapp.ui.theme.SecondaryCoralSoft
+import com.example.wordbookapp.ui.theme.themePaletteForPreset
 
 @Composable
 fun WordbookApp(
     repository: WordbookRepository,
+    currentThemePreset: ThemePreset,
+    onPreviewTheme: (ThemePreset) -> Unit,
+    onCancelThemePreview: () -> Unit,
+    onApplyTheme: (ThemePreset) -> Unit,
     navController: NavHostController = rememberNavController(),
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
@@ -136,6 +147,10 @@ fun WordbookApp(
                 )
                 HomeRoute(
                     viewModel = viewModel,
+                    currentThemePreset = currentThemePreset,
+                    onPreviewTheme = onPreviewTheme,
+                    onCancelThemePreview = onCancelThemePreview,
+                    onApplyTheme = onApplyTheme,
                     onOpenDeck = { deckId -> navController.navigate("deck/$deckId") },
                     onOpenDeckStats = { deckId -> navController.navigate("deck_stats/$deckId") },
                     onStartDeckExam = { deckId -> navController.navigate("exam_setup?deckId=$deckId") },
@@ -325,6 +340,10 @@ fun WordbookApp(
 @Composable
 private fun HomeRoute(
     viewModel: HomeViewModel,
+    currentThemePreset: ThemePreset,
+    onPreviewTheme: (ThemePreset) -> Unit,
+    onCancelThemePreview: () -> Unit,
+    onApplyTheme: (ThemePreset) -> Unit,
     onOpenDeck: (Long) -> Unit,
     onOpenDeckStats: (Long) -> Unit,
     onStartDeckExam: (Long) -> Unit,
@@ -334,7 +353,9 @@ private fun HomeRoute(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var showDialog by remember { mutableStateOf(false) }
+    var showSettingsDialog by remember { mutableStateOf(false) }
     var deckName by remember { mutableStateOf("") }
+    var pendingThemePreset by remember(currentThemePreset, showSettingsDialog) { mutableStateOf(currentThemePreset) }
     val scope = rememberCoroutineScope()
 
     if (showDialog) {
@@ -375,7 +396,41 @@ private fun HomeRoute(
         )
     }
 
-    ScreenContainer(title = "일본어 단어장") {
+    if (showSettingsDialog) {
+        ThemeSettingsDialog(
+            selectedPreset = pendingThemePreset,
+            onPresetChange = {
+                pendingThemePreset = it
+                onPreviewTheme(it)
+            },
+            onDismiss = {
+                showSettingsDialog = false
+                pendingThemePreset = currentThemePreset
+                onCancelThemePreview()
+            },
+            onConfirm = {
+                showSettingsDialog = false
+                onApplyTheme(pendingThemePreset)
+            },
+        )
+    }
+
+    ScreenContainer(
+        title = "일본어 단어장",
+        actions = {
+            AppHeaderIconButton(
+                onClick = {
+                    pendingThemePreset = currentThemePreset
+                    showSettingsDialog = true
+                },
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.Settings,
+                    contentDescription = "설정",
+                )
+            }
+        },
+    ) {
         if (uiState.isLoading || uiState.data == null) {
             LoadingView()
             return@ScreenContainer
@@ -463,6 +518,145 @@ private fun HomeRoute(
                     }
                 }
             }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ThemeSettingsDialog(
+    selectedPreset: ThemePreset,
+    onPresetChange: (ThemePreset) -> Unit,
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("설정") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                Text(
+                    text = "테마",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                ThemePresetDropdown(
+                    selectedPreset = selectedPreset,
+                    onPresetChange = onPresetChange,
+                )
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = "사용 색상",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = InkMuted,
+                    )
+                    ThemeSwatchRow(
+                        colors = themePaletteForPreset(selectedPreset).swatches,
+                        squareSize = 20.dp,
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = onConfirm,
+                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+            ) {
+                Text("적용")
+            }
+        },
+        dismissButton = {
+            TextButton(
+                onClick = onDismiss,
+                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+            ) {
+                Text("취소")
+            }
+        },
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ThemePresetDropdown(
+    selectedPreset: ThemePreset,
+    onPresetChange: (ThemePreset) -> Unit,
+) {
+    var expanded by remember { mutableStateOf(false) }
+
+    ExposedDropdownMenuBox(
+        expanded = expanded,
+        onExpandedChange = { expanded = it },
+    ) {
+        OutlinedTextField(
+            value = selectedPreset.displayName,
+            onValueChange = {},
+            modifier = Modifier
+                .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
+                .fillMaxWidth(),
+            readOnly = true,
+            label = { Text("테마 프리셋") },
+            trailingIcon = {
+                ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
+            },
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedContainerColor = MaterialTheme.colorScheme.surface,
+                unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+            ),
+        )
+        ExposedDropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+        ) {
+            ThemePreset.entries.forEach { preset ->
+                DropdownMenuItem(
+                    text = {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                text = preset.displayName,
+                                modifier = Modifier.weight(1f),
+                                style = MaterialTheme.typography.bodyMedium,
+                            )
+                            ThemeSwatchRow(
+                                colors = themePaletteForPreset(preset).swatches.take(5),
+                                squareSize = 12.dp,
+                            )
+                        }
+                    },
+                    onClick = {
+                        expanded = false
+                        onPresetChange(preset)
+                    },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ThemeSwatchRow(
+    colors: List<Color>,
+    squareSize: androidx.compose.ui.unit.Dp,
+) {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        colors.forEach { color ->
+            Box(
+                modifier = Modifier
+                    .width(squareSize)
+                    .height(squareSize)
+                    .clip(RoundedCornerShape(4.dp))
+                    .background(color)
+                    .then(
+                        if (color.alpha == 0f) Modifier else Modifier
+                    ),
+            )
         }
     }
 }
