@@ -27,6 +27,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
@@ -101,6 +102,8 @@ import com.example.wordbookapp.ui.theme.DividerSoft
 import com.example.wordbookapp.ui.theme.InkMuted
 import com.example.wordbookapp.ui.theme.InkSoft
 import com.example.wordbookapp.ui.theme.CardBorderStrong
+import com.example.wordbookapp.ui.theme.ExamGreen
+import com.example.wordbookapp.ui.theme.ExamGreenSoft
 import com.example.wordbookapp.ui.theme.PaperElevated
 import com.example.wordbookapp.ui.theme.PrimaryBlue
 import com.example.wordbookapp.ui.theme.PrimaryBlueSoft
@@ -386,7 +389,6 @@ private fun HomeRoute(
                 SummaryCard(
                     totalWords = data.totalWordCount,
                     recentSessionCount = data.recentSessions.size,
-                    onCreateCustomDeck = { showDialog = true },
                     onOpenAiDeck = onOpenAiDeck,
                     onOpenAllWords = onOpenAllWords,
                 )
@@ -403,7 +405,30 @@ private fun HomeRoute(
                 )
             }
             item {
-                SectionTitle("커스텀 단어장")
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    SectionTitle("커스텀 단어장")
+                    OutlinedButton(
+                        onClick = { showDialog = true },
+                        shape = RoundedCornerShape(12.dp),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
+                    ) {
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.Add,
+                                contentDescription = null,
+                            )
+                            Text("추가")
+                        }
+                    }
+                }
             }
             if (data.customDecks.isEmpty()) {
                 item {
@@ -1676,7 +1701,6 @@ private fun AppSearchField(
 private fun SummaryCard(
     totalWords: Int,
     recentSessionCount: Int,
-    onCreateCustomDeck: () -> Unit,
     onOpenAiDeck: () -> Unit,
     onOpenAllWords: () -> Unit,
 ) {
@@ -1703,11 +1727,69 @@ private fun SummaryCard(
                     "최근 시험 ${recentSessionCount}회",
                     color = InkSoft,
                 )
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    AppPrimaryButton("커스텀 단어장", onClick = onCreateCustomDeck)
-                    AppSecondaryButton("AI 단어장", onClick = onOpenAiDeck)
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onOpenAiDeck() },
+                    shape = RoundedCornerShape(18.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    border = BorderStroke(1.dp, DividerSoft),
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .width(44.dp)
+                                .height(44.dp)
+                                .clip(RoundedCornerShape(14.dp))
+                                .background(
+                                    Brush.linearGradient(
+                                        listOf(PrimaryBlueSoft, SecondaryCoralSoft),
+                                    ),
+                                ),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text(
+                                text = "AI",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = PrimaryBlue,
+                            )
+                        }
+                        Column(
+                            modifier = Modifier.weight(1f),
+                            verticalArrangement = Arrangement.spacedBy(2.dp),
+                        ) {
+                            Text(
+                                text = "AI 시험 기능",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                            Text(
+                                text = "자주 틀린 단어와 새 단어를 섞어 바로 시험해요.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = InkSoft,
+                            )
+                        }
+                        Icon(
+                            imageVector = Icons.Outlined.PlayArrow,
+                            contentDescription = null,
+                            tint = PrimaryBlue,
+                        )
+                    }
                 }
-                AppSecondaryButton("모든 단어 보기", onClick = onOpenAllWords)
+                OutlinedButton(
+                    onClick = onOpenAllWords,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 10.dp),
+                ) {
+                    Text("모든 단어 보기")
+                }
             }
             Box(
                 modifier = Modifier
@@ -1900,45 +1982,71 @@ private fun DeckCard(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         border = BorderStroke(1.25.dp, CardBorderStrong),
     ) {
-        Column(
+        Row(
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 13.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(deck.name, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
-            Text(deck.description, color = InkSoft)
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                AssistChip(
-                    onClick = onClick,
-                    label = { Text(deck.sourceTag) },
-                    colors = androidx.compose.material3.AssistChipDefaults.assistChipColors(
-                        containerColor = PrimaryBlueSoft,
-                        labelColor = PrimaryBlue,
-                    ),
-                )
-                Text("${deck.wordCount}개 단어", color = InkMuted)
-            }
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically,
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
-                FilledTonalIconButton(
-                    onClick = onStartExam,
-                ) {
-                    Icon(
-                        imageVector = Icons.Outlined.PlayArrow,
-                        contentDescription = "바로 시험 보기",
+                Text(deck.name, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                Text(deck.description, color = InkSoft)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    AssistChip(
+                        onClick = onClick,
+                        label = { Text(deck.sourceTag) },
+                        colors = androidx.compose.material3.AssistChipDefaults.assistChipColors(
+                            containerColor = PrimaryBlueSoft,
+                            labelColor = PrimaryBlue,
+                        ),
                     )
+                    Text("${deck.wordCount}개 단어", color = InkMuted)
+                }
+            }
+            Column(
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Button(
+                    onClick = onStartExam,
+                    modifier = Modifier.width(90.dp),
+                    shape = MaterialTheme.shapes.large,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = ExamGreenSoft,
+                        contentColor = ExamGreen,
+                    ),
+                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 9.dp),
+                ) {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.PlayArrow,
+                            contentDescription = null,
+                        )
+                        Text("시험")
+                    }
                 }
                 OutlinedButton(
                     onClick = onOpenStats,
+                    modifier = Modifier.width(90.dp),
                     shape = MaterialTheme.shapes.large,
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
-                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 8.dp),
+                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 9.dp),
                 ) {
-                    Icon(
-                        imageVector = Icons.Outlined.QueryStats,
-                        contentDescription = "통계 보기",
-                    )
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.QueryStats,
+                            contentDescription = null,
+                        )
+                        Text("통계")
+                    }
                 }
             }
         }
