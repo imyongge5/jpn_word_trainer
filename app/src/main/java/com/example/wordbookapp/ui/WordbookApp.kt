@@ -1488,6 +1488,76 @@ private fun StatsWordRow(
 }
 
 @Composable
+private fun DeckDailyBarChart(
+    stats: List<com.example.wordbookapp.data.model.DeckDailyStat>,
+) {
+    val chartItems = stats.take(7).reversed()
+    val maxQuestionCount = chartItems.maxOfOrNull { it.totalQuestionCount }?.coerceAtLeast(1) ?: 1
+
+    Card(
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(containerColor = PaperElevated),
+        border = BorderStroke(1.dp, DividerSoft),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Text("최근 일자별 응시량", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.Bottom,
+            ) {
+                chartItems.forEach { daily ->
+                    val totalBarRatio = daily.totalQuestionCount.toFloat() / maxQuestionCount.toFloat()
+                    val wrongBarRatio = daily.wrongCount.toFloat() / maxQuestionCount.toFloat()
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        Box(
+                            modifier = Modifier.height(120.dp),
+                            contentAlignment = Alignment.BottomCenter,
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height((120f * totalBarRatio).dp.coerceAtLeast(6.dp))
+                                    .clip(RoundedCornerShape(topStart = 10.dp, topEnd = 10.dp))
+                                    .background(PrimaryBlueSoft),
+                            )
+                            if (daily.wrongCount > 0) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth(0.6f)
+                                        .height((120f * wrongBarRatio).dp.coerceAtLeast(6.dp))
+                                        .clip(RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp))
+                                        .background(SecondaryCoral),
+                                )
+                            }
+                        }
+                        Text(
+                            text = daily.dateLabel.takeLast(5),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = InkMuted,
+                        )
+                    }
+                }
+            }
+            Text(
+                text = "파랑: 총 문제 수 · 코랄: 오답 수",
+                style = MaterialTheme.typography.bodySmall,
+                color = InkMuted,
+            )
+        }
+    }
+}
+
+@Composable
 private fun AppPrimaryButton(
     text: String,
     onClick: () -> Unit,
@@ -1693,6 +1763,9 @@ private fun DeckStatsRoute(
                     EmptyHint("아직 완료된 시험 기록이 없어요.")
                 }
             } else {
+                item {
+                    DeckDailyBarChart(stats = stats.dailyStats)
+                }
                 items(stats.dailyStats) { daily ->
                     Card(
                         modifier = Modifier.clickable { onOpenDateStats(daily.dateKey) },
