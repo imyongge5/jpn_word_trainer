@@ -22,7 +22,7 @@ DEFAULT_DECKS = [
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--asset", default="app/src/main/assets/jlpt_words.json")
+    parser.add_argument("--asset", default="data/seeds/jlpt_words.json")
     parser.add_argument("--output", default="app/src/main/assets/databases/wordbook.db")
     return parser.parse_args()
 

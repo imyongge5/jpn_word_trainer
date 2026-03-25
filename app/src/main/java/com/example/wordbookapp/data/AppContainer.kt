@@ -17,10 +17,7 @@ class AppContainer(context: Context) {
         .addMigrations(MIGRATION_1_2)
         .build()
 
-    val repository: WordbookRepository = WordbookRepository(
-        context = context,
-        database = database,
-    )
+    val repository: WordbookRepository = WordbookRepository(database = database)
 
     private companion object {
         val MIGRATION_1_2 = object : Migration(1, 2) {

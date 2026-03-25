@@ -1,13 +1,10 @@
 package com.example.wordbookapp.data.repository
 
-import android.content.Context
-import androidx.room.withTransaction
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
-import org.json.JSONArray
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -40,7 +37,6 @@ import com.example.wordbookapp.data.model.WordDraft
 import com.example.wordbookapp.data.model.WordOrder
 
 class WordbookRepository(
-    private val context: Context,
     private val database: WordbookDatabase,
 ) {
     private val wordDao = database.wordDao()
@@ -79,153 +75,27 @@ class WordbookRepository(
         }
 
         val now = System.currentTimeMillis()
-        val seedRecords = loadSeedRecords()
-        val deckIds = mutableMapOf<String, Long>()
-        DEFAULT_DECKS.forEachIndexed { index, deck ->
-            val existingDeck = deckDao.getDeckBySourceTag(deck.tag)
-            val id = existingDeck?.id ?: deckDao.insertDeck(
-                DeckEntity(
-                    name = deck.name,
-                    description = deck.description,
-                    type = DeckType.JLPT,
-                    sourceTag = deck.tag,
-                    displayOrder = index,
-                    createdAt = now + index,
-                ),
-            )
-            deckIds[deck.key] = id
-        }
-
-        if (wordDao.getWordCount() == 0) {
-            seedFreshDatabase(
-                now = now,
-                deckIds = deckIds,
-                seedRecords = seedRecords,
-            )
-            appSettingDao.upsert(AppSettingEntity(SEED_KEY, SEEDED_VALUE))
-            return@withContext
-        }
-
+        ensureDefaultDecks(now)
         val allExistingWords = wordDao.getAllWordsByNewest().toMutableList()
         repairLegacySeedWords(allExistingWords)
-        val wordIdBySignature = allExistingWords.associateBy(
-            keySelector = { wordSignature(it.readingJa, it.kanji, it.meaningKo, it.tag) },
-            valueTransform = { it.id },
-        ).toMutableMap()
-
-        val linkedSignaturesByDeck = deckIds.mapValues { (_, deckId) ->
-            deckDao.getWordsForDeck(deckId).map {
-                wordSignature(it.readingJa, it.kanji, it.meaningKo, it.tag)
-            }.toMutableSet()
-        }.toMutableMap()
-
-        val displayOrderByDeck = deckIds.mapValues { (_, deckId) ->
-            deckDao.getWordsForDeck(deckId).size
-        }.toMutableMap()
-
-        seedRecords.forEachIndexed { index, record ->
-            val signature = wordSignature(record.readingJa, record.kanji, record.meaningKo, record.tag)
-            val wordId = wordIdBySignature[signature] ?: wordDao.insertWord(
-                WordEntity(
-                    readingJa = record.readingJa,
-                    readingKo = record.readingKo,
-                    partOfSpeech = record.partOfSpeech,
-                    grammar = record.grammar,
-                    kanji = record.kanji,
-                    meaningJa = record.meaningJa,
-                    meaningKo = record.meaningKo,
-                    exampleJa = record.exampleJa,
-                    exampleKo = record.exampleKo,
-                    tag = record.tag,
-                    note = record.note,
-                    createdAt = now + 100 + index,
-                ),
-            ).also { insertedId ->
-                wordIdBySignature[signature] = insertedId
-            }
-
-            val deckId = deckIds.getValue(record.deck)
-            val linkedSignatures = linkedSignaturesByDeck.getValue(record.deck)
-            if (signature !in linkedSignatures) {
-                deckDao.insertDeckWordCrossRef(
-                    DeckWordCrossRef(
-                        deckId = deckId,
-                        wordId = wordId,
-                        displayOrder = displayOrderByDeck.getValue(record.deck),
-                        addedAt = now + 100 + index,
-                    ),
-                )
-                linkedSignatures += signature
-                displayOrderByDeck[record.deck] = displayOrderByDeck.getValue(record.deck) + 1
-            }
-        }
-
         appSettingDao.upsert(AppSettingEntity(SEED_KEY, SEEDED_VALUE))
     }
 
-    private suspend fun seedFreshDatabase(
-        now: Long,
-        deckIds: Map<String, Long>,
-        seedRecords: List<SeedWordRecord>,
-    ) {
-        data class PendingRef(
-            val signature: String,
-            val deckKey: String,
-            val displayOrder: Int,
-            val addedAt: Long,
-        )
-
-        val uniqueWords = mutableListOf<WordEntity>()
-        val signatureToIndex = mutableMapOf<String, Int>()
-        val linkedSignaturesByDeck = deckIds.keys.associateWith { mutableSetOf<String>() }.toMutableMap()
-        val displayOrderByDeck = deckIds.keys.associateWith { 0 }.toMutableMap()
-        val pendingRefs = mutableListOf<PendingRef>()
-
-        seedRecords.forEachIndexed { index, record ->
-            val signature = wordSignature(record.readingJa, record.kanji, record.meaningKo, record.tag)
-            signatureToIndex.getOrPut(signature) {
-                uniqueWords += WordEntity(
-                    readingJa = record.readingJa,
-                    readingKo = record.readingKo,
-                    partOfSpeech = record.partOfSpeech,
-                    grammar = record.grammar,
-                    kanji = record.kanji,
-                    meaningJa = record.meaningJa,
-                    meaningKo = record.meaningKo,
-                    exampleJa = record.exampleJa,
-                    exampleKo = record.exampleKo,
-                    tag = record.tag,
-                    note = record.note,
-                    createdAt = now + 100 + index,
-                )
-                uniqueWords.lastIndex
-            }
-
-            val linkedSignatures = linkedSignaturesByDeck.getValue(record.deck)
-            if (signature !in linkedSignatures) {
-                pendingRefs += PendingRef(
-                    signature = signature,
-                    deckKey = record.deck,
-                    displayOrder = displayOrderByDeck.getValue(record.deck),
-                    addedAt = now + 100 + index,
-                )
-                linkedSignatures += signature
-                displayOrderByDeck[record.deck] = displayOrderByDeck.getValue(record.deck) + 1
-            }
-        }
-
-        database.withTransaction {
-            val insertedIds = wordDao.insertWords(uniqueWords)
-            val signatureToWordId = signatureToIndex.mapValues { (_, index) -> insertedIds[index] }
-            val crossRefs = pendingRefs.map { pendingRef ->
-                DeckWordCrossRef(
-                    deckId = deckIds.getValue(pendingRef.deckKey),
-                    wordId = signatureToWordId.getValue(pendingRef.signature),
-                    displayOrder = pendingRef.displayOrder,
-                    addedAt = pendingRef.addedAt,
+    private suspend fun ensureDefaultDecks(now: Long) {
+        DEFAULT_DECKS.forEachIndexed { index, deck ->
+            val existingDeck = deckDao.getDeckBySourceTag(deck.tag)
+            if (existingDeck == null) {
+                deckDao.insertDeck(
+                    DeckEntity(
+                        name = deck.name,
+                        description = deck.description,
+                        type = DeckType.JLPT,
+                        sourceTag = deck.tag,
+                        displayOrder = index,
+                        createdAt = now + index,
+                    ),
                 )
             }
-            deckDao.insertDeckWordCrossRefs(crossRefs)
         }
     }
 
@@ -337,15 +207,19 @@ class WordbookRepository(
         settings: ExamSettings,
         useAiSelection: Boolean,
     ): Long = withContext(Dispatchers.IO) {
+        val requestedWordCount = settings.wordCount
         val selectedWords = if (useAiSelection) {
-            buildAiWordSelection()
+            buildAiWordSelection(limit = requestedWordCount)
         } else {
             requireNotNull(deckId)
             val deckWords = deckDao.getWordsForDeck(deckId)
-            when (settings.wordOrder) {
+            val orderedWords = when (settings.wordOrder) {
                 WordOrder.SEQUENTIAL -> deckWords
                 WordOrder.RANDOM -> deckWords.shuffled(Random(System.currentTimeMillis()))
             }
+            requestedWordCount?.let { limit ->
+                orderedWords.take(limit.coerceAtMost(orderedWords.size))
+            } ?: orderedWords
         }
 
         val deckName = if (useAiSelection) {
@@ -552,7 +426,8 @@ class WordbookRepository(
         )
     }
 
-    private suspend fun buildAiWordSelection(): List<WordEntity> {
+    private suspend fun buildAiWordSelection(limit: Int?): List<WordEntity> {
+        val targetSize = limit?.coerceAtLeast(1) ?: AI_DECK_SIZE
         val words = wordDao.getAllWordsByNewest()
         val answers = studyDao.getAllAnswersNewestFirst()
         val stats = buildWordStats(words, answers)
@@ -564,16 +439,16 @@ class WordbookRepository(
         val shuffled = words.shuffled(Random(System.currentTimeMillis()))
 
         return buildList {
-            addUnique(frequentMissed)
-            addUnique(newestWords)
-            addUnique(unseenWords)
-            addUnique(shuffled)
-        }.take(AI_DECK_SIZE)
+            addUnique(frequentMissed, targetSize)
+            addUnique(newestWords, targetSize)
+            addUnique(unseenWords, targetSize)
+            addUnique(shuffled, targetSize)
+        }.take(targetSize)
     }
 
-    private fun MutableList<WordEntity>.addUnique(words: List<WordEntity>) {
+    private fun MutableList<WordEntity>.addUnique(words: List<WordEntity>, limit: Int) {
         words.forEach { word ->
-            if (none { it.id == word.id } && size < AI_DECK_SIZE) {
+            if (none { it.id == word.id } && size < limit) {
                 add(word)
             }
         }
@@ -632,32 +507,6 @@ class WordbookRepository(
     private fun dateLabelFromKey(dateKey: String): String =
         DATE_KEY_FORMATTER.parse(dateKey, LocalDate::from).format(DATE_LABEL_FORMATTER)
 
-    private fun loadSeedRecords(): List<SeedWordRecord> {
-        val text = context.assets.open("jlpt_words.json").bufferedReader().use { it.readText() }
-        val array = JSONArray(text)
-        return buildList {
-            for (index in 0 until array.length()) {
-                val item = array.getJSONObject(index)
-                add(
-                    SeedWordRecord(
-                        deck = item.getString("deck"),
-                        readingJa = item.getString("readingJa"),
-                        readingKo = item.getString("readingKo"),
-                        partOfSpeech = item.getString("partOfSpeech"),
-                        grammar = item.getString("grammar"),
-                        kanji = item.getString("kanji"),
-                        meaningJa = item.getString("meaningJa"),
-                        meaningKo = item.getString("meaningKo"),
-                        exampleJa = item.optString("exampleJa"),
-                        exampleKo = item.optString("exampleKo"),
-                        tag = item.getString("tag"),
-                        note = item.getString("note"),
-                    ),
-                )
-            }
-        }
-    }
-
     private fun parseWordIds(serialized: String): List<Long> =
         serialized.split(",").mapNotNull { it.toLongOrNull() }
 
@@ -675,13 +524,6 @@ class WordbookRepository(
             allExistingWords[index] = correctedWord
         }
     }
-
-    private fun wordSignature(
-        readingJa: String,
-        kanji: String,
-        meaningKo: String,
-        tag: String,
-    ): String = listOf(readingJa, kanji, meaningKo, tag).joinToString("|")
 
     private data class DefaultDeck(
         val key: String,
