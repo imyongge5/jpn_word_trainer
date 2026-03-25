@@ -971,11 +971,43 @@ private fun ExamSetupRoute(
             LoadingView()
             return@ScreenContainer
         }
-        Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            Text(uiState.deck?.name ?: "AI가 자주 틀린 단어와 새 단어를 섞어 30문제를 구성합니다.")
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Card(
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = PaperElevated),
+                border = BorderStroke(1.dp, DividerSoft),
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 14.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    Text(
+                        text = uiState.deck?.name ?: "AI 단어장",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Text(
+                        text = if (uiState.isAiDeck) {
+                            "자주 틀린 단어와 새 단어를 섞어 30문제를 구성합니다."
+                        } else {
+                            "출제 방식을 고른 뒤 바로 시험을 시작할 수 있어요."
+                        },
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = InkSoft,
+                    )
+                }
+            }
+
             SettingGroup(
                 title = "출제 순서",
-                selectedLabel = uiState.settings.wordOrder.name,
+                selectedLabel = orderLabel(uiState.settings.wordOrder),
                 options = WordOrder.entries.map { it to orderLabel(it) },
                 current = uiState.settings.wordOrder,
                 onSelect = viewModel::setWordOrder,
@@ -994,17 +1026,17 @@ private fun ExamSetupRoute(
                 current = uiState.settings.revealField,
                 onSelect = viewModel::setRevealField,
             )
-            Button(
+
+            AppPrimaryButton(
+                text = "시험 시작",
                 onClick = {
                     scope.launch {
                         onStartExam(viewModel.startExam())
                     }
                 },
+                modifier = Modifier.fillMaxWidth(),
                 enabled = uiState.canStart,
-                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-            ) {
-                Text("시험 시작")
-            }
+            )
         }
     }
 }
@@ -1027,6 +1059,8 @@ private fun ExamRoute(
             EmptyHint("출제할 단어가 없어요.")
             return@ScreenContainer
         }
+        val showExamRuby = sessionData.session.revealField != WordField.READING_JA &&
+            sessionData.session.revealField != WordField.READING_KO
         val currentIndex = sessionData.answersCount
         val currentWord = sessionData.words[currentIndex]
         Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -1068,6 +1102,7 @@ private fun ExamRoute(
                         field = sessionData.session.frontField,
                         mainStyle = MaterialTheme.typography.headlineSmall,
                         rubyStyle = MaterialTheme.typography.labelMedium,
+                        showRuby = showExamRuby,
                         alignCenter = true,
                     )
                     if (uiState.revealed) {
@@ -1076,6 +1111,7 @@ private fun ExamRoute(
                             field = sessionData.session.revealField,
                             mainStyle = MaterialTheme.typography.titleLarge,
                             rubyStyle = MaterialTheme.typography.labelMedium,
+                            showRuby = showExamRuby,
                             alignCenter = true,
                             rubyColor = Color(0xFFE5807A),
                         )
@@ -1546,6 +1582,42 @@ private fun WordRow(
     onClick: () -> Unit,
 ) {
     val hasMeaningColumn = showMeaningKo || showMeaningJa
+    val prioritizeJapaneseMeaning = showMeaningJa && !showMeaningKo
+    val leftColumnWeight = when {
+        !hasMeaningColumn -> 1f
+        prioritizeJapaneseMeaning -> 0.36f
+        else -> 0.42f
+    }
+    val rightColumnWeight = if (prioritizeJapaneseMeaning) 0.64f else 0.58f
+    val meaningJaBaseStyle = if (prioritizeJapaneseMeaning) {
+        MaterialTheme.typography.bodyLarge.copy(
+            fontWeight = FontWeight.Medium,
+            fontSize = 17.sp,
+            lineHeight = 24.sp,
+            letterSpacing = (-0.1).sp,
+        )
+    } else {
+        MaterialTheme.typography.bodyMedium.copy(
+            fontWeight = FontWeight.Medium,
+            fontSize = 15.sp,
+            lineHeight = 22.sp,
+            letterSpacing = (-0.1).sp,
+        )
+    }
+    val meaningJaRubyStyle = if (prioritizeJapaneseMeaning) {
+        MaterialTheme.typography.labelSmall.copy(
+            fontSize = 10.sp,
+            lineHeight = 11.sp,
+            letterSpacing = (-0.1).sp,
+        )
+    } else {
+        MaterialTheme.typography.labelSmall.copy(
+            fontSize = 9.5.sp,
+            lineHeight = 10.sp,
+            letterSpacing = (-0.1).sp,
+        )
+    }
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -1571,7 +1643,7 @@ private fun WordRow(
                 verticalAlignment = Alignment.Top,
             ) {
                 Column(
-                    modifier = Modifier.weight(if (hasMeaningColumn) 0.42f else 1f),
+                    modifier = Modifier.weight(leftColumnWeight),
                     verticalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
                     if (showPartOfSpeech) {
@@ -1598,7 +1670,7 @@ private fun WordRow(
                 }
                 if (hasMeaningColumn) {
                     Column(
-                        modifier = Modifier.weight(0.58f),
+                        modifier = Modifier.weight(rightColumnWeight),
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         if (showMeaningKo && word.meaningKo.isNotBlank()) {
@@ -1613,16 +1685,8 @@ private fun WordRow(
                                 text = word.meaningJa,
                                 currentWordId = word.id,
                                 allWords = allWords,
-                                baseStyle = MaterialTheme.typography.bodyMedium.copy(
-                                    fontWeight = FontWeight.Medium,
-                                    lineHeight = 20.sp,
-                                    letterSpacing = (-0.1).sp,
-                                ),
-                                rubyStyle = MaterialTheme.typography.labelSmall.copy(
-                                    fontSize = 9.sp,
-                                    lineHeight = 9.sp,
-                                    letterSpacing = (-0.1).sp,
-                                ),
+                                baseStyle = meaningJaBaseStyle,
+                                rubyStyle = meaningJaRubyStyle,
                                 baseColor = InkSoft,
                                 rubyColor = SecondaryCoral,
                             )
@@ -1966,12 +2030,12 @@ private fun SentencePlainSegment(
 
 @Composable
 private fun rememberRubySlotHeight(rubyStyle: TextStyle) = with(LocalDensity.current) {
-    val lineHeight: TextUnit = if (rubyStyle.lineHeight != TextUnit.Unspecified) {
+    val baseHeight: TextUnit = if (rubyStyle.lineHeight != TextUnit.Unspecified) {
         rubyStyle.lineHeight
     } else {
-        rubyStyle.fontSize * 1.15f
+        rubyStyle.fontSize
     }
-    lineHeight.toDp()
+    (baseHeight * 1.45f).toDp()
 }
 
 private sealed interface RubyInlinePart {
@@ -2148,18 +2212,47 @@ private fun <T> SettingGroup(
     current: T,
     onSelect: (T) -> Unit,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(title, fontWeight = FontWeight.Bold)
-        Text("현재: $selectedLabel")
-        options.forEach { (value, label) ->
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .selectable(selected = current == value, onClick = { onSelect(value) }),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                RadioButton(selected = current == value, onClick = { onSelect(value) })
-                Text(label)
+    Card(
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = PaperElevated),
+        border = BorderStroke(1.dp, DividerSoft),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                Text(
+                    "현재: $selectedLabel",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = InkMuted,
+                )
+            }
+            options.chunked(2).forEach { rowOptions ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    rowOptions.forEach { (value, label) ->
+                        Row(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clip(RoundedCornerShape(14.dp))
+                                .selectable(selected = current == value, onClick = { onSelect(value) })
+                                .padding(horizontal = 2.dp, vertical = 0.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            RadioButton(selected = current == value, onClick = { onSelect(value) })
+                            Text(label, style = MaterialTheme.typography.bodyMedium)
+                        }
+                    }
+                    if (rowOptions.size == 1) {
+                        Spacer(modifier = Modifier.weight(1f))
+                    }
+                }
             }
         }
     }
@@ -2369,11 +2462,12 @@ private fun RubyFieldText(
     mainStyle: TextStyle,
     rubyStyle: TextStyle,
     modifier: Modifier = Modifier,
+    showRuby: Boolean = true,
     alignCenter: Boolean = false,
     rubyColor: Color = SecondaryCoral,
 ) {
     val mainText = displayField(word, field)
-    val rubyText = rubyTextFor(word, field)
+    val rubyText = rubyTextFor(word, field).takeIf { showRuby }
 
     Box(
         modifier = modifier.then(
