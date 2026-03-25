@@ -28,6 +28,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -42,6 +43,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -363,6 +365,9 @@ private fun DeckRoute(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var showReadingKo by rememberSaveable { mutableStateOf(false) }
     var showMeaningJa by rememberSaveable { mutableStateOf(false) }
+    var searchQuery by rememberSaveable { mutableStateOf("") }
+    var selectedPartOfSpeech by rememberSaveable { mutableStateOf("전체") }
+    var selectedTag by rememberSaveable { mutableStateOf("전체") }
     ScreenContainer(
         title = uiState.deck?.name ?: "단어장",
         onBack = onBack,
@@ -372,6 +377,35 @@ private fun DeckRoute(
             return@ScreenContainer
         }
         val deck = uiState.deck ?: return@ScreenContainer
+        val partOfSpeechOptions = remember(uiState.words) {
+            listOf("전체") + uiState.words
+                .map { it.partOfSpeech.trim() }
+                .filter { it.isNotBlank() }
+                .distinct()
+                .sorted()
+        }
+        val tagOptions = remember(uiState.words) {
+            listOf("전체") + uiState.words
+                .map { it.tag.trim() }
+                .filter { it.isNotBlank() }
+                .distinct()
+                .sorted()
+        }
+        val filteredWords by remember(
+            uiState.words,
+            searchQuery,
+            selectedPartOfSpeech,
+            selectedTag,
+        ) {
+            derivedStateOf {
+                uiState.words.filter { word ->
+                    val matchesQuery = searchQuery.isBlank() || word.matchesSearchQuery(searchQuery)
+                    val matchesPartOfSpeech = selectedPartOfSpeech == "전체" || word.partOfSpeech == selectedPartOfSpeech
+                    val matchesTag = selectedTag == "전체" || word.tag == selectedTag
+                    matchesQuery && matchesPartOfSpeech && matchesTag
+                }
+            }
+        }
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(deck.description, style = MaterialTheme.typography.bodyMedium)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -386,17 +420,44 @@ private fun DeckRoute(
                     Text(if (showMeaningJa) "뜻을 한국어로" else "뜻을 일본어로")
                 }
             }
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = { searchQuery = it },
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text("단어 검색") },
+                placeholder = { Text("한자, 읽기, 뜻, 태그로 찾기") },
+                singleLine = true,
+            )
+            FilterChipRow(
+                title = "품사",
+                options = partOfSpeechOptions,
+                selected = selectedPartOfSpeech,
+                onSelect = { selectedPartOfSpeech = it },
+            )
+            FilterChipRow(
+                title = "태그",
+                options = tagOptions,
+                selected = selectedTag,
+                onSelect = { selectedTag = it },
+            )
+            Text(
+                text = "표시 ${filteredWords.size} / 전체 ${uiState.words.size}",
+                style = MaterialTheme.typography.labelMedium,
+                color = InkMuted,
+            )
             HorizontalDivider()
             if (uiState.words.isEmpty()) {
                 EmptyHint("이 단어장에는 아직 단어가 없어요.")
+            } else if (filteredWords.isEmpty()) {
+                EmptyHint("조건에 맞는 단어가 없어요.")
             } else {
                 LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    items(uiState.words) { word ->
+                    items(filteredWords) { word ->
                         WordRow(
                             word = word,
                             showReadingKo = showReadingKo,
                             showMeaningJa = showMeaningJa,
-                            allWords = uiState.words,
+                            allWords = filteredWords,
                             onClick = { onOpenWord(word.id) },
                         )
                     }
@@ -1484,6 +1545,47 @@ private fun <T> SettingGroup(
 @Composable
 private fun EmptyHint(text: String) {
     Text(text, style = MaterialTheme.typography.bodyMedium)
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun FilterChipRow(
+    title: String,
+    options: List<String>,
+    selected: String,
+    onSelect: (String) -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(title, style = MaterialTheme.typography.labelLarge, color = InkMuted)
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            options.forEach { option ->
+                FilterChip(
+                    selected = selected == option,
+                    onClick = { onSelect(option) },
+                    label = { Text(option) },
+                )
+            }
+        }
+    }
+}
+
+private fun WordEntity.matchesSearchQuery(query: String): Boolean {
+    val normalizedQuery = query.trim().lowercase()
+    if (normalizedQuery.isBlank()) return true
+    return listOf(
+        kanji,
+        readingJa,
+        readingKo,
+        meaningKo,
+        meaningJa,
+        tag,
+        partOfSpeech,
+        grammar,
+        note,
+    ).any { it.lowercase().contains(normalizedQuery) }
 }
 
 private fun orderLabel(order: WordOrder): String = when (order) {
