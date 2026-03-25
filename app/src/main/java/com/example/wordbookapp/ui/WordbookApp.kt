@@ -1,14 +1,16 @@
 package com.example.wordbookapp.ui
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -18,6 +20,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
@@ -38,8 +41,12 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
@@ -241,7 +248,7 @@ private fun HomeRoute(
         val data = uiState.data ?: return@ScreenContainer
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             item {
                 SummaryCard(
@@ -274,8 +281,14 @@ private fun HomeRoute(
                     SectionTitle("최근 시험")
                 }
                 items(data.recentSessions) { session ->
-                    Card {
-                        Column(modifier = Modifier.padding(16.dp)) {
+                    Card(
+                        shape = RoundedCornerShape(20.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp),
+                        ) {
                             Text(session.deckName, fontWeight = FontWeight.Bold)
                             Text("정답 ${session.correctCount} / ${session.totalCount} (${session.accuracyPercent}%)")
                         }
@@ -314,7 +327,7 @@ private fun DeckRoute(
             if (uiState.words.isEmpty()) {
                 EmptyHint("이 단어장에는 아직 단어가 없어요.")
             } else {
-                LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     items(uiState.words) { word ->
                         WordRow(word = word, onClick = { onEditWord(word.id) })
                     }
@@ -455,27 +468,55 @@ private fun ExamRoute(
         val currentWord = sessionData.words[currentIndex]
         Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
             Text("${currentIndex + 1} / ${sessionData.words.size}", style = MaterialTheme.typography.titleMedium)
-            Card(modifier = Modifier.fillMaxWidth()) {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(28.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                ),
+                elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+            ) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(24.dp)
+                        .padding(horizontal = 22.dp, vertical = 20.dp)
                         .clickable(enabled = !uiState.revealed) { viewModel.reveal() },
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(999.dp)),
+                    ) {
+                        Text(
+                            text = if (uiState.revealed) "정답 공개됨" else "터치해서 보기",
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                    }
                     Text(
                         text = displayField(currentWord, sessionData.session.frontField),
-                        style = MaterialTheme.typography.headlineMedium,
+                        style = MaterialTheme.typography.headlineSmall,
+                        textAlign = TextAlign.Center,
                     )
                     if (uiState.revealed) {
                         Text(
                             text = displayField(currentWord, sessionData.session.revealField),
                             style = MaterialTheme.typography.titleLarge,
+                            textAlign = TextAlign.Center,
                         )
-                        Text(currentWord.meaningKo)
+                        Text(
+                            currentWord.meaningKo,
+                            style = MaterialTheme.typography.bodyLarge,
+                            textAlign = TextAlign.Center,
+                        )
                     } else {
-                        Text("카드를 터치해서 정답을 확인하세요.")
+                        Text(
+                            "카드를 터치해서 정답을 확인하세요.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            textAlign = TextAlign.Center,
+                        )
                     }
                 }
             }
@@ -599,8 +640,8 @@ private fun SummaryCard(
 ) {
     Card {
         Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             Text("총 단어 ${totalWords}개", fontWeight = FontWeight.Bold)
             Text("최근 시험 ${recentSessionCount}회")
@@ -614,8 +655,17 @@ private fun SummaryCard(
 
 @Composable
 private fun DeckCard(deck: DeckWithCount, onClick: () -> Unit) {
-    Card(modifier = Modifier.fillMaxWidth().clickable { onClick() }) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() },
+        shape = RoundedCornerShape(22.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 13.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
             Text(deck.name, fontWeight = FontWeight.Bold)
             Text(deck.description)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -628,13 +678,61 @@ private fun DeckCard(deck: DeckWithCount, onClick: () -> Unit) {
 
 @Composable
 private fun WordRow(word: WordEntity, onClick: () -> Unit) {
-    Card(modifier = Modifier.fillMaxWidth().clickable { onClick() }) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(word.kanji, fontWeight = FontWeight.Bold)
-            Text("${word.readingJa} / ${word.readingKo}")
-            Text(word.meaningKo)
-            if (word.tag.isNotBlank()) {
-                Text(word.tag, style = MaterialTheme.typography.labelMedium)
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() },
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFFFFCF7)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Spacer(
+                modifier = Modifier
+                    .width(4.dp)
+                    .clip(RoundedCornerShape(999.dp))
+                    .background(Color(0xFFE7E7EB)),
+            )
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(
+                    text = word.partOfSpeech.ifBlank { word.tag.ifBlank { "단어" } },
+                    style = MaterialTheme.typography.labelMedium,
+                    color = Color(0xFF7A97BB),
+                )
+                if (word.readingJa.isNotBlank()) {
+                    Text(
+                        text = word.readingJa,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = Color(0xFFE5807A),
+                    )
+                }
+                Text(
+                    text = word.kanji,
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                )
+                Text(
+                    text = word.meaningKo,
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = Color(0xFF80848C),
+                )
+                if (word.meaningJa.isNotBlank()) {
+                    Text(
+                        text = word.meaningJa,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Color(0xFF9AA0A8),
+                    )
+                }
+                if (word.readingKo.isNotBlank()) {
+                    Text(
+                        text = word.readingKo,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = Color(0xFFA0A7B0),
+                    )
+                }
             }
         }
     }
