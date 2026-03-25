@@ -70,6 +70,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Edit
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.activity.compose.BackHandler
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -98,6 +99,11 @@ fun WordbookApp(
     navController: NavHostController = rememberNavController(),
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
+    val canNavigateBack = navController.previousBackStackEntry != null
+
+    BackHandler(enabled = canNavigateBack) {
+        navController.popBackStack()
+    }
 
     Scaffold(
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
