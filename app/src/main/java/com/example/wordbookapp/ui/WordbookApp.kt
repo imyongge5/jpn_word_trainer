@@ -1157,18 +1157,15 @@ private fun LinkedJapaneseText(
                             onOpenWord(segment.word.id)
                         }
                     },
-                    horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(0.dp),
                 ) {
-                    Text(
-                        text = segment.word.readingJa,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = SecondaryCoral,
-                    )
-                    Text(
-                        text = segment.displayText,
-                        style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold),
-                        color = if (segment.word.id == currentWordId) InkSoft else PrimaryBlue,
+                    InlineRubyText(
+                        displayText = segment.displayText,
+                        readingText = segment.word.readingJa,
+                        baseStyle = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold),
+                        rubyStyle = MaterialTheme.typography.labelSmall,
+                        baseColor = if (segment.word.id == currentWordId) InkSoft else PrimaryBlue,
+                        rubyColor = SecondaryCoral,
                     )
                 }
             }
@@ -1220,6 +1217,108 @@ private fun buildLinkedSegments(
     }
     return segments
 }
+
+@Composable
+private fun InlineRubyText(
+    displayText: String,
+    readingText: String,
+    baseStyle: TextStyle,
+    rubyStyle: TextStyle,
+    baseColor: Color,
+    rubyColor: Color,
+) {
+    val parts = remember(displayText, readingText) {
+        splitRubyToken(displayText, readingText)
+    }
+
+    Row(
+        verticalAlignment = Alignment.Bottom,
+        horizontalArrangement = Arrangement.spacedBy(0.dp),
+    ) {
+        parts.forEach { part ->
+            when (part) {
+                is RubyInlinePart.Plain -> Text(
+                    text = part.text,
+                    style = baseStyle,
+                    color = baseColor,
+                )
+
+                is RubyInlinePart.Annotated -> Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(0.dp),
+                ) {
+                    Text(
+                        text = part.reading,
+                        style = rubyStyle,
+                        color = rubyColor,
+                    )
+                    Text(
+                        text = part.base,
+                        style = baseStyle,
+                        color = baseColor,
+                    )
+                }
+            }
+        }
+    }
+}
+
+private sealed interface RubyInlinePart {
+    data class Plain(val text: String) : RubyInlinePart
+    data class Annotated(val base: String, val reading: String) : RubyInlinePart
+}
+
+private fun splitRubyToken(
+    displayText: String,
+    readingText: String,
+): List<RubyInlinePart> {
+    if (displayText.isBlank() || readingText.isBlank()) {
+        return listOf(RubyInlinePart.Plain(displayText))
+    }
+
+    var left = 0
+    val maxPrefix = minOf(displayText.length, readingText.length)
+    while (
+        left < maxPrefix &&
+        displayText[left] == readingText[left] &&
+        displayText[left].isKana()
+    ) {
+        left += 1
+    }
+
+    var displayRight = displayText.length
+    var readingRight = readingText.length
+    while (
+        displayRight > left &&
+        readingRight > left &&
+        displayText[displayRight - 1] == readingText[readingRight - 1] &&
+        displayText[displayRight - 1].isKana()
+    ) {
+        displayRight -= 1
+        readingRight -= 1
+    }
+
+    val prefix = displayText.substring(0, left)
+    val coreBase = displayText.substring(left, displayRight)
+    val coreReading = readingText.substring(left, readingRight)
+    val suffix = displayText.substring(displayRight)
+
+    if (coreBase.isBlank() || coreReading.isBlank() || !coreBase.any { it.isKanji() }) {
+        return listOf(RubyInlinePart.Plain(displayText))
+    }
+
+    return buildList {
+        if (prefix.isNotEmpty()) add(RubyInlinePart.Plain(prefix))
+        add(RubyInlinePart.Annotated(coreBase, coreReading))
+        if (suffix.isNotEmpty()) add(RubyInlinePart.Plain(suffix))
+    }
+}
+
+private fun Char.isKana(): Boolean =
+    this in '\u3040'..'\u309f' || this in '\u30a0'..'\u30ff'
+
+private fun Char.isKanji(): Boolean =
+    this in '\u4e00'..'\u9fff' || this in '\u3400'..'\u4dbf'
 
 @Composable
 private fun EditorField(label: String, value: String, onValueChange: (String) -> Unit) {
