@@ -1,0 +1,11 @@
+<resources>
+    <color name="launcher_background">#232A36</color>
+    <color name="launcher_background_night">#232A36</color>
+    <color name="splash_background">#181C24</color>
+    <color name="splash_background_night">#181C24</color>
+    <color name="splash_icon_accent">#D98A73</color>
+    <color name="splash_icon_page">#F2EADF</color>
+    <color name="splash_icon_page_night">#F2EADF</color>
+    <color name="splash_icon_shadow">#E7D8C5</color>
+    <color name="splash_icon_shadow_night">#E7D8C5</color>
+</resources>

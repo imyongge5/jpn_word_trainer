@@ -1,4 +1,11 @@
 <resources>
+    <style name="Theme.WordbookApp.Starting" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/splash_background_night</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_splash_logo</item>
+        <item name="windowSplashScreenIconBackgroundColor">@color/launcher_background_night</item>
+        <item name="postSplashScreenTheme">@style/Theme.WordbookApp</item>
+    </style>
+
     <style name="Theme.WordbookApp" parent="Theme.Material3.DayNight.NoActionBar">
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
