@@ -90,6 +90,7 @@ class WordbookRepository(
         }
 
         val allExistingWords = wordDao.getAllWordsByNewest().toMutableList()
+        repairLegacySeedWords(allExistingWords)
         val wordIdBySignature = allExistingWords.associateBy(
             keySelector = { wordSignature(it.readingJa, it.kanji, it.meaningKo, it.tag) },
             valueTransform = { it.id },
@@ -556,6 +557,21 @@ class WordbookRepository(
 
     private fun parseWordIds(serialized: String): List<Long> =
         serialized.split(",").mapNotNull { it.toLongOrNull() }
+
+    private suspend fun repairLegacySeedWords(allExistingWords: MutableList<WordEntity>) {
+        val legacyWord = allExistingWords.firstOrNull {
+            it.readingJa == "うまれる" &&
+                it.kanji == "生(ま)れる·産(ま)れる" &&
+                it.meaningKo == "태어나다. 출생하다"
+        } ?: return
+
+        val correctedWord = legacyWord.copy(kanji = "生まれる")
+        wordDao.updateWord(correctedWord)
+        val index = allExistingWords.indexOfFirst { it.id == legacyWord.id }
+        if (index >= 0) {
+            allExistingWords[index] = correctedWord
+        }
+    }
 
     private fun wordSignature(
         readingJa: String,
