@@ -162,6 +162,25 @@ fun WordbookApp(
                 )
                 DeckStatsRoute(
                     viewModel = viewModel,
+                    onOpenDateStats = { dateKey -> navController.navigate("deck_stats/$deckId/date/$dateKey") },
+                    onBack = { navController.popBackStack() },
+                )
+            }
+            composable(
+                route = "deck_stats/{deckId}/date/{dateKey}",
+                arguments = listOf(
+                    navArgument("deckId") { type = NavType.LongType },
+                    navArgument("dateKey") { type = NavType.StringType },
+                ),
+            ) { backStackEntry ->
+                val deckId = backStackEntry.arguments?.getLong("deckId") ?: return@composable
+                val dateKey = backStackEntry.arguments?.getString("dateKey") ?: return@composable
+                val viewModel: DeckDateStatsViewModel = viewModel(
+                    key = "deck-date-stats-$deckId-$dateKey",
+                    factory = WordbookViewModelFactory { DeckDateStatsViewModel(repository, deckId, dateKey) },
+                )
+                DeckDateStatsRoute(
+                    viewModel = viewModel,
                     onBack = { navController.popBackStack() },
                 )
             }
@@ -1635,6 +1654,7 @@ private fun SummaryCard(
 @Composable
 private fun DeckStatsRoute(
     viewModel: DeckStatsViewModel,
+    onOpenDateStats: (String) -> Unit,
     onBack: () -> Unit,
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -1675,6 +1695,7 @@ private fun DeckStatsRoute(
             } else {
                 items(stats.dailyStats) { daily ->
                     Card(
+                        modifier = Modifier.clickable { onOpenDateStats(daily.dateKey) },
                         shape = RoundedCornerShape(18.dp),
                         colors = CardDefaults.cardColors(containerColor = PaperElevated),
                         border = BorderStroke(1.dp, DividerSoft),
@@ -1710,6 +1731,82 @@ private fun DeckStatsRoute(
             }
             items(stats.allWordStats) { stat ->
                 StatsWordRow(stat = stat)
+            }
+        }
+    }
+}
+
+@Composable
+private fun DeckDateStatsRoute(
+    viewModel: DeckDateStatsViewModel,
+    onBack: () -> Unit,
+) {
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    ScreenContainer(
+        title = "날짜 통계",
+        onBack = onBack,
+    ) {
+        if (uiState.isLoading || uiState.stats == null) {
+            LoadingView()
+            return@ScreenContainer
+        }
+        val stats = uiState.stats ?: return@ScreenContainer
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text("${stats.deckName} · ${stats.dateLabel}", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        StatsKeyChip("시험 수", "${stats.sessions.size}회")
+                        StatsKeyChip("시험 본 단어", "${stats.studiedWordCount}개")
+                        StatsKeyChip("미응시 단어", "${stats.unstudiedWordCount}개")
+                    }
+                }
+            }
+            item {
+                SectionTitle("세션 기록")
+            }
+            if (stats.sessions.isEmpty()) {
+                item {
+                    EmptyHint("이 날짜에는 완료된 시험이 없어요.")
+                }
+            } else {
+                items(stats.sessions) { session ->
+                    Card(
+                        shape = RoundedCornerShape(18.dp),
+                        colors = CardDefaults.cardColors(containerColor = PaperElevated),
+                        border = BorderStroke(1.dp, DividerSoft),
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp),
+                        ) {
+                            Text("세션 #${session.sessionId}", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                            Text(
+                                "문제 ${session.totalCount}개 · 오답 ${session.wrongCount}개 · 정답률 ${session.accuracyPercent}%",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = InkSoft,
+                            )
+                        }
+                    }
+                }
+            }
+            item {
+                SectionTitle("그날 자주 틀린 단어")
+            }
+            if (stats.topMissedWords.isEmpty()) {
+                item {
+                    EmptyHint("이 날짜에는 오답 기록이 없어요.")
+                }
+            } else {
+                items(stats.topMissedWords) { stat ->
+                    StatsWordRow(stat = stat)
+                }
             }
         }
     }

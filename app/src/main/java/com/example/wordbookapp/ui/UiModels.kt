@@ -3,6 +3,7 @@ package com.example.wordbookapp.ui
 import com.example.wordbookapp.data.local.entity.DeckEntity
 import com.example.wordbookapp.data.local.entity.WordEntity
 import com.example.wordbookapp.data.model.DeckWithCount
+import com.example.wordbookapp.data.model.DeckDateStatsData
 import com.example.wordbookapp.data.model.DeckStatsData
 import com.example.wordbookapp.data.model.ExamSessionData
 import com.example.wordbookapp.data.model.ExamSettings
@@ -54,6 +55,11 @@ data class ResultUiState(
 data class DeckStatsUiState(
     val isLoading: Boolean = true,
     val stats: DeckStatsData? = null,
+)
+
+data class DeckDateStatsUiState(
+    val isLoading: Boolean = true,
+    val stats: DeckDateStatsData? = null,
 )
 
 data class WordDetailUiState(
