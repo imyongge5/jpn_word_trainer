@@ -1145,10 +1145,11 @@ private fun LinkedJapaneseText(
     ) {
         segments.forEach { segment ->
             when (segment) {
-                is LinkedSegment.Plain -> Text(
+                is LinkedSegment.Plain -> SentencePlainSegment(
                     text = segment.text,
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurface,
+                    baseStyle = MaterialTheme.typography.bodyLarge,
+                    rubyStyle = MaterialTheme.typography.labelSmall,
+                    baseColor = MaterialTheme.colorScheme.onSurface,
                 )
 
                 is LinkedSegment.WordMatch -> Column(
@@ -1239,10 +1240,11 @@ private fun InlineRubyText(
     ) {
         parts.forEach { part ->
             when (part) {
-                is RubyInlinePart.Plain -> Text(
+                is RubyInlinePart.Plain -> SentencePlainSegment(
                     text = part.text,
-                    style = baseStyle,
-                    color = baseColor,
+                    baseStyle = baseStyle,
+                    rubyStyle = rubyStyle,
+                    baseColor = baseColor,
                 )
 
                 is RubyInlinePart.Annotated -> Column(
@@ -1262,6 +1264,29 @@ private fun InlineRubyText(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun SentencePlainSegment(
+    text: String,
+    baseStyle: TextStyle,
+    rubyStyle: TextStyle,
+    baseColor: Color,
+) {
+    Column(
+        verticalArrangement = Arrangement.spacedBy(0.dp),
+    ) {
+        Text(
+            text = " ",
+            style = rubyStyle,
+            color = Color.Transparent,
+        )
+        Text(
+            text = text,
+            style = baseStyle,
+            color = baseColor,
+        )
     }
 }
 
