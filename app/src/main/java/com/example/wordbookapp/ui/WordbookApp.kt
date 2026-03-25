@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.lazy.LazyColumn
@@ -293,12 +294,16 @@ private fun HomeRoute(
                         }
                     },
                     enabled = deckName.isNotBlank(),
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
                 ) {
                     Text("생성")
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showDialog = false }) {
+                TextButton(
+                    onClick = { showDialog = false },
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                ) {
                     Text("취소")
                 }
             },
@@ -456,21 +461,35 @@ private fun DeckRoute(
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(deck.description, style = MaterialTheme.typography.bodyMedium)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(onClick = onAddWord) { Text("단어 추가") }
-                    Button(onClick = onStartExam, enabled = uiState.words.isNotEmpty()) { Text("시험 시작") }
+                Button(
+                    onClick = onAddWord,
+                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp),
+                ) { Text("단어 추가") }
+                Button(
+                    onClick = onStartExam,
+                    enabled = uiState.words.isNotEmpty(),
+                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp),
+                ) { Text("시험 시작") }
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(
+                    onClick = { showReadingKo = !showReadingKo },
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+                ) {
+                    Text(if (showReadingKo) "한국어 읽기 숨기기" else "한국어 읽기 보기")
                 }
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedButton(onClick = { showReadingKo = !showReadingKo }) {
-                        Text(if (showReadingKo) "한국어 읽기 숨기기" else "한국어 읽기 보기")
-                    }
-                    OutlinedButton(onClick = { showMeaningJa = !showMeaningJa }) {
-                        Text(if (showMeaningJa) "뜻을 한국어로" else "뜻을 일본어로")
-                    }
-                    OutlinedButton(
-                        onClick = { scope.launch { drawerState.open() } },
-                    ) {
-                        Text("필터")
-                    }
+                OutlinedButton(
+                    onClick = { showMeaningJa = !showMeaningJa },
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+                ) {
+                    Text(if (showMeaningJa) "뜻을 한국어로" else "뜻을 일본어로")
+                }
+                OutlinedButton(
+                    onClick = { scope.launch { drawerState.open() } },
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+                ) {
+                    Text("필터")
+                }
                 }
                 OutlinedTextField(
                     value = searchQuery,
@@ -568,7 +587,10 @@ private fun WordEditorRoute(
                 viewModel.updateDraft { draft -> draft.copy(note = it) }
             }
             uiState.errorMessage?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-            Button(onClick = { viewModel.save() }) {
+            Button(
+                onClick = { viewModel.save() },
+                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp),
+            ) {
                 Text(if (uiState.isEditMode) "수정 저장" else "단어 저장")
             }
         }
@@ -628,6 +650,7 @@ private fun WordDetailRoute(
                                 OutlinedButton(
                                     onClick = { viewModel.addToDeck(deck.id) },
                                     modifier = Modifier.fillMaxWidth(),
+                                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
                                 ) {
                                     Text(deck.name)
                                 }
@@ -636,7 +659,10 @@ private fun WordDetailRoute(
                     }
                 },
                 confirmButton = {
-                    TextButton(onClick = { showDeckDialog = false }) {
+                    TextButton(
+                        onClick = { showDeckDialog = false },
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                    ) {
                         Text("닫기")
                     }
                 },
@@ -652,11 +678,17 @@ private fun WordDetailRoute(
                 showReadingKo = true,
             )
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(onClick = { showDeckDialog = true }) {
+                Button(
+                    onClick = { showDeckDialog = true },
+                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp),
+                ) {
                     Text("단어장에 넣기")
                 }
                 if (deckId != null) {
-                    OutlinedButton(onClick = { onEdit(word.id) }) {
+                    OutlinedButton(
+                        onClick = { onEdit(word.id) },
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+                    ) {
                         Text("이 단어 수정")
                     }
                 }
@@ -782,6 +814,7 @@ private fun ExamSetupRoute(
                     }
                 },
                 enabled = uiState.canStart,
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
             ) {
                 Text("시험 시작")
             }
@@ -882,6 +915,7 @@ private fun ExamRoute(
                             }
                         },
                         modifier = Modifier.weight(1f),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
                     ) {
                         Text("맞았어요")
                     }
@@ -892,6 +926,7 @@ private fun ExamRoute(
                             }
                         },
                         modifier = Modifier.weight(1f),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
                     ) {
                         Text("틀렸어요")
                     }
@@ -936,7 +971,10 @@ private fun ResultRoute(
                     }
                 }
             }
-            Button(onClick = onGoHome) {
+            Button(
+                onClick = onGoHome,
+                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp),
+            ) {
                 Text("홈으로 돌아가기")
             }
         }
@@ -965,7 +1003,10 @@ private fun ScreenContainer(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 actions?.invoke()
                 if (onBack != null) {
-                    TextButton(onClick = onBack) { Text("뒤로") }
+                    TextButton(
+                        onClick = onBack,
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
+                    ) { Text("뒤로") }
                 }
             }
         }
@@ -1019,8 +1060,14 @@ private fun SummaryCard(
                     color = InkSoft,
                 )
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(onClick = onCreateCustomDeck) { Text("커스텀 단어장") }
-                    OutlinedButton(onClick = onOpenAiDeck) { Text("AI 단어장") }
+                    Button(
+                        onClick = onCreateCustomDeck,
+                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp),
+                    ) { Text("커스텀 단어장") }
+                    OutlinedButton(
+                        onClick = onOpenAiDeck,
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+                    ) { Text("AI 단어장") }
                 }
             }
             Box(
