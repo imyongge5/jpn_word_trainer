@@ -18,11 +18,22 @@
   - `<ANDROID_SDK>\cmdline-tools\latest\bin`
 - If command-line Android tools do not work, verify that `java -version`, `adb version`, and `sdkmanager.bat --version` resolve from a fresh terminal.
 
+## Emulator notes
+
+- A CLI-created Android 13 test emulator is available:
+  - AVD name: `S22Ultra_API33`
+  - Device profile: `pixel_9_pro_xl`
+  - System image: `system-images;android-33;google_apis;x86_64`
+  - AVD path: `<USER_HOME>\.android\avd\S22Ultra_API33.avd`
+- This emulator is intended as an approximate `Galaxy S22 Ultra` test device, not a perfect 1:1 Samsung hardware profile.
+- Run it from CLI with: `emulator.exe -avd S22Ultra_API33`
+
 ## Setup commands
 
 - Check Java: `java -version`
 - Check adb: `adb version`
 - Check SDK manager: `sdkmanager.bat --version`
+- List emulators: `emulator.exe -list-avds`
 - Launch Android Studio: `& '<ANDROID_STUDIO>'`
 
 ## Python rule
