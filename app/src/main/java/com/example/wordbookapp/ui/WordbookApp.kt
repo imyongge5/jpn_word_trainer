@@ -43,6 +43,8 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.RadioButton
+import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.Surface
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
@@ -1164,19 +1166,32 @@ private fun ScreenContainer(
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        Row(
+        Surface(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
+            shape = MaterialTheme.shapes.extraLarge,
+            color = MaterialTheme.colorScheme.surfaceVariant,
+            tonalElevation = 1.dp,
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
         ) {
-            Text(title, style = MaterialTheme.typography.headlineSmall)
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                actions?.invoke()
-                if (onBack != null) {
-                    TextButton(
-                        onClick = onBack,
-                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
-                    ) { Text("뒤로") }
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(title, style = MaterialTheme.typography.headlineSmall)
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    actions?.invoke()
+                    if (onBack != null) {
+                        TextButton(
+                            onClick = onBack,
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
+                        ) { Text("뒤로") }
+                    }
                 }
             }
         }
@@ -1210,6 +1225,7 @@ private fun AppPrimaryButton(
         onClick = onClick,
         modifier = modifier,
         enabled = enabled,
+        shape = MaterialTheme.shapes.large,
         contentPadding = PaddingValues(horizontal = 14.dp, vertical = 10.dp),
     ) {
         Text(text)
@@ -1227,6 +1243,7 @@ private fun AppSecondaryButton(
         onClick = onClick,
         modifier = modifier,
         enabled = enabled,
+        shape = MaterialTheme.shapes.large,
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
         contentPadding = PaddingValues(horizontal = 14.dp, vertical = 10.dp),
     ) {
@@ -1246,6 +1263,7 @@ private fun AppActionButton(
         onClick = onClick,
         modifier = modifier,
         enabled = enabled,
+        shape = MaterialTheme.shapes.large,
         colors = androidx.compose.material3.IconButtonDefaults.filledTonalIconButtonColors(
             containerColor = MaterialTheme.colorScheme.primaryContainer,
             contentColor = MaterialTheme.colorScheme.primary,
@@ -1268,6 +1286,7 @@ private fun AppFilterButton(
     OutlinedButton(
         onClick = onClick,
         modifier = modifier,
+        shape = MaterialTheme.shapes.large,
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
         contentPadding = PaddingValues(horizontal = 14.dp, vertical = 10.dp),
     ) {
@@ -1306,6 +1325,10 @@ private fun AppSearchField(
             unfocusedContainerColor = MaterialTheme.colorScheme.surface,
             focusedBorderColor = MaterialTheme.colorScheme.primary,
             unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+            focusedLabelColor = MaterialTheme.colorScheme.primary,
+            unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+            focusedLeadingIconColor = MaterialTheme.colorScheme.primary,
+            unfocusedLeadingIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
             cursorColor = MaterialTheme.colorScheme.primary,
         ),
         shape = MaterialTheme.shapes.large,
@@ -1938,6 +1961,18 @@ private fun FilterChipRow(
                     selected = selected == option,
                     onClick = { onSelect(option) },
                     label = { Text(option) },
+                    colors = FilterChipDefaults.filterChipColors(
+                        containerColor = MaterialTheme.colorScheme.surface,
+                        labelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        selectedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
+                        selectedLabelColor = MaterialTheme.colorScheme.secondary,
+                    ),
+                    border = FilterChipDefaults.filterChipBorder(
+                        enabled = true,
+                        selected = selected == option,
+                        borderColor = MaterialTheme.colorScheme.outlineVariant,
+                        selectedBorderColor = MaterialTheme.colorScheme.secondaryContainer,
+                    ),
                 )
             }
         }
@@ -1963,6 +1998,18 @@ private fun FilterChipIdRow(
                     selected = selected == id,
                     onClick = { onSelect(id) },
                     label = { Text(label) },
+                    colors = FilterChipDefaults.filterChipColors(
+                        containerColor = MaterialTheme.colorScheme.surface,
+                        labelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        selectedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
+                        selectedLabelColor = MaterialTheme.colorScheme.secondary,
+                    ),
+                    border = FilterChipDefaults.filterChipBorder(
+                        enabled = true,
+                        selected = selected == id,
+                        borderColor = MaterialTheme.colorScheme.outlineVariant,
+                        selectedBorderColor = MaterialTheme.colorScheme.secondaryContainer,
+                    ),
                 )
             }
         }
