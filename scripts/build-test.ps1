@@ -1,6 +1,7 @@
 param(
     [string]$GradleTask = "assembleDebug",
     [switch]$SkipInstall,
+    [switch]$PreferEmulator,
     [string]$PackageName = "com.example.wordbookapp",
     [string]$LaunchActivity = ".MainActivity"
 )
@@ -54,24 +55,46 @@ try {
     }
 
     $deviceLines = & adb devices
-    $emulatorSerial = $deviceLines |
-        Select-String "emulator-\d+\s+device" |
-        ForEach-Object { ($_ -split "\s+")[0] } |
+    $connectedSerials = $deviceLines |
+        Select-String "\s+device$" |
+        ForEach-Object { ($_ -split "\s+")[0] }
+
+    $physicalSerial = $connectedSerials |
+        Where-Object { $_ -notmatch "^emulator-\d+$" } |
         Select-Object -First 1
 
-    if (-not $emulatorSerial) {
-        Write-Host "No running emulator found. Build finished, install skipped."
+    $emulatorSerial = $connectedSerials |
+        Where-Object { $_ -match "^emulator-\d+$" } |
+        Select-Object -First 1
+
+    if ($PreferEmulator.IsPresent) {
+        if ($emulatorSerial) {
+            $targetSerial = $emulatorSerial
+        } else {
+            $targetSerial = $physicalSerial
+        }
+    } else {
+        if ($physicalSerial) {
+            $targetSerial = $physicalSerial
+        } else {
+            $targetSerial = $emulatorSerial
+        }
+    }
+
+    if (-not $targetSerial) {
+        Write-Host "No connected device found. Build finished, install skipped."
         return
     }
 
-    Write-Host "Installing APK on $emulatorSerial"
-    & adb -s $emulatorSerial install -r $apkPath
+    $targetType = if ($targetSerial -match "^emulator-\d+$") { "emulator" } else { "device" }
+    Write-Host "Installing APK on $targetType $targetSerial"
+    & adb -s $targetSerial install -r $apkPath
     if ($LASTEXITCODE -ne 0) {
         throw "APK install failed with exit code $LASTEXITCODE"
     }
 
     Write-Host "Launching $PackageName/$LaunchActivity"
-    & adb -s $emulatorSerial shell am start -n "$PackageName/$LaunchActivity"
+    & adb -s $targetSerial shell am start -n "$PackageName/$LaunchActivity"
     if ($LASTEXITCODE -ne 0) {
         throw "App launch failed with exit code $LASTEXITCODE"
     }
