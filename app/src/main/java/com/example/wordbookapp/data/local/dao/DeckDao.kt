@@ -38,6 +38,9 @@ interface DeckDao {
     @Query("SELECT * FROM decks WHERE id = :deckId LIMIT 1")
     suspend fun getDeckById(deckId: Long): DeckEntity?
 
+    @Query("SELECT * FROM decks WHERE sourceTag = :sourceTag LIMIT 1")
+    suspend fun getDeckBySourceTag(sourceTag: String): DeckEntity?
+
     @Query("SELECT COUNT(*) FROM decks")
     suspend fun getDeckCount(): Int
 

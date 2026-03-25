@@ -49,16 +49,11 @@ class WordbookRepository(
     fun observeDeckWords(deckId: Long): Flow<List<WordEntity>> = deckDao.observeWordsForDeck(deckId)
 
     suspend fun ensureSeeded() = withContext(Dispatchers.IO) {
-        if (appSettingDao.getValue(SEED_KEY) == SEEDED_VALUE) return@withContext
-        if (deckDao.getDeckCount() > 0 && wordDao.getWordCount() > 0) {
-            appSettingDao.upsert(AppSettingEntity(SEED_KEY, SEEDED_VALUE))
-            return@withContext
-        }
-
         val now = System.currentTimeMillis()
         val deckIds = mutableMapOf<String, Long>()
         DEFAULT_DECKS.forEachIndexed { index, deck ->
-            val id = deckDao.insertDeck(
+            val existingDeck = deckDao.getDeckBySourceTag(deck.tag)
+            val id = existingDeck?.id ?: deckDao.insertDeck(
                 DeckEntity(
                     name = deck.name,
                     description = deck.description,
@@ -71,8 +66,25 @@ class WordbookRepository(
             deckIds[deck.key] = id
         }
 
+        val allExistingWords = wordDao.getAllWordsByNewest().toMutableList()
+        val wordIdBySignature = allExistingWords.associateBy(
+            keySelector = { wordSignature(it.readingJa, it.kanji, it.meaningKo, it.tag) },
+            valueTransform = { it.id },
+        ).toMutableMap()
+
+        val linkedSignaturesByDeck = deckIds.mapValues { (_, deckId) ->
+            deckDao.getWordsForDeck(deckId).map {
+                wordSignature(it.readingJa, it.kanji, it.meaningKo, it.tag)
+            }.toMutableSet()
+        }.toMutableMap()
+
+        val displayOrderByDeck = deckIds.mapValues { (_, deckId) ->
+            deckDao.getWordsForDeck(deckId).size
+        }.toMutableMap()
+
         loadSeedRecords().forEachIndexed { index, record ->
-            val wordId = wordDao.insertWord(
+            val signature = wordSignature(record.readingJa, record.kanji, record.meaningKo, record.tag)
+            val wordId = wordIdBySignature[signature] ?: wordDao.insertWord(
                 WordEntity(
                     readingJa = record.readingJa,
                     readingKo = record.readingKo,
@@ -85,15 +97,24 @@ class WordbookRepository(
                     note = record.note,
                     createdAt = now + 100 + index,
                 ),
-            )
-            deckDao.insertDeckWordCrossRef(
-                DeckWordCrossRef(
-                    deckId = deckIds.getValue(record.deck),
-                    wordId = wordId,
-                    displayOrder = index,
-                    addedAt = now + 100 + index,
-                ),
-            )
+            ).also { insertedId ->
+                wordIdBySignature[signature] = insertedId
+            }
+
+            val deckId = deckIds.getValue(record.deck)
+            val linkedSignatures = linkedSignaturesByDeck.getValue(record.deck)
+            if (signature !in linkedSignatures) {
+                deckDao.insertDeckWordCrossRef(
+                    DeckWordCrossRef(
+                        deckId = deckId,
+                        wordId = wordId,
+                        displayOrder = displayOrderByDeck.getValue(record.deck),
+                        addedAt = now + 100 + index,
+                    ),
+                )
+                linkedSignatures += signature
+                displayOrderByDeck[record.deck] = displayOrderByDeck.getValue(record.deck) + 1
+            }
         }
 
         appSettingDao.upsert(AppSettingEntity(SEED_KEY, SEEDED_VALUE))
@@ -362,6 +383,13 @@ class WordbookRepository(
     private fun parseWordIds(serialized: String): List<Long> =
         serialized.split(",").mapNotNull { it.toLongOrNull() }
 
+    private fun wordSignature(
+        readingJa: String,
+        kanji: String,
+        meaningKo: String,
+        tag: String,
+    ): String = listOf(readingJa, kanji, meaningKo, tag).joinToString("|")
+
     private data class DefaultDeck(
         val key: String,
         val name: String,
@@ -371,7 +399,7 @@ class WordbookRepository(
 
     private companion object {
         private const val AI_DECK_SIZE = 30
-        private const val SEED_KEY = "seed_v1"
+        private const val SEED_KEY = "seed_v2"
         private const val SEEDED_VALUE = "done"
 
         private val DEFAULT_DECKS = listOf(

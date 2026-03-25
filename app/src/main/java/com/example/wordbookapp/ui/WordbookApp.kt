@@ -69,6 +69,7 @@ import com.example.wordbookapp.data.repository.WordbookRepository
 import com.example.wordbookapp.ui.theme.DividerSoft
 import com.example.wordbookapp.ui.theme.InkMuted
 import com.example.wordbookapp.ui.theme.InkSoft
+import com.example.wordbookapp.ui.theme.CardBorderStrong
 import com.example.wordbookapp.ui.theme.PaperElevated
 import com.example.wordbookapp.ui.theme.PrimaryBlue
 import com.example.wordbookapp.ui.theme.PrimaryBlueSoft
@@ -709,7 +710,7 @@ private fun DeckCard(deck: DeckWithCount, onClick: () -> Unit) {
             .clickable { onClick() },
         shape = RoundedCornerShape(22.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        border = BorderStroke(1.dp, DividerSoft),
+        border = BorderStroke(1.25.dp, CardBorderStrong),
     ) {
         Column(
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 13.dp),
@@ -741,6 +742,7 @@ private fun WordRow(word: WordEntity, onClick: () -> Unit) {
         shape = RoundedCornerShape(18.dp),
         colors = CardDefaults.cardColors(containerColor = PaperElevated),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        border = BorderStroke(1.25.dp, CardBorderStrong),
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
