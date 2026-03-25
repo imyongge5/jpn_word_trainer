@@ -58,6 +58,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Edit
@@ -1131,6 +1132,18 @@ private fun LinkedJapaneseText(
     allWords: List<WordEntity>,
     onOpenWord: (Long) -> Unit,
 ) {
+    val sentenceBaseStyle = MaterialTheme.typography.titleMedium.copy(
+        fontWeight = FontWeight.SemiBold,
+        fontSize = 18.sp,
+        lineHeight = 22.sp,
+        letterSpacing = (-0.15).sp,
+    )
+    val sentenceRubyStyle = MaterialTheme.typography.labelSmall.copy(
+        fontSize = 10.sp,
+        lineHeight = 10.sp,
+        letterSpacing = (-0.1).sp,
+    )
+
     val segments = remember(text, currentWordId, allWords) {
         buildLinkedSegments(
             text = text,
@@ -1141,14 +1154,14 @@ private fun LinkedJapaneseText(
 
     FlowRow(
         horizontalArrangement = Arrangement.spacedBy(0.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp),
+        verticalArrangement = Arrangement.spacedBy(2.dp),
     ) {
         segments.forEach { segment ->
             when (segment) {
                 is LinkedSegment.Plain -> SentencePlainSegment(
                     text = segment.text,
-                    baseStyle = MaterialTheme.typography.bodyLarge,
-                    rubyStyle = MaterialTheme.typography.labelSmall,
+                    baseStyle = sentenceBaseStyle,
+                    rubyStyle = sentenceRubyStyle,
                     baseColor = MaterialTheme.colorScheme.onSurface,
                 )
 
@@ -1163,8 +1176,8 @@ private fun LinkedJapaneseText(
                     InlineRubyText(
                         displayText = segment.displayText,
                         readingText = segment.word.readingJa,
-                        baseStyle = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold),
-                        rubyStyle = MaterialTheme.typography.labelSmall,
+                        baseStyle = sentenceBaseStyle,
+                        rubyStyle = sentenceRubyStyle,
                         baseColor = if (segment.word.id == currentWordId) InkSoft else PrimaryBlue,
                         rubyColor = SecondaryCoral,
                     )
@@ -1275,7 +1288,7 @@ private fun SentencePlainSegment(
     baseColor: Color,
 ) {
     Column(
-        verticalArrangement = Arrangement.spacedBy(0.dp),
+        verticalArrangement = Arrangement.spacedBy((-1).dp),
     ) {
         Text(
             text = " ",
