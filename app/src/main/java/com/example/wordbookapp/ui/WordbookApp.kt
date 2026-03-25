@@ -362,6 +362,7 @@ private fun DeckRoute(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var showReadingKo by rememberSaveable { mutableStateOf(false) }
+    var showMeaningJa by rememberSaveable { mutableStateOf(false) }
     ScreenContainer(
         title = uiState.deck?.name ?: "단어장",
         onBack = onBack,
@@ -377,8 +378,13 @@ private fun DeckRoute(
                 Button(onClick = onAddWord) { Text("단어 추가") }
                 Button(onClick = onStartExam, enabled = uiState.words.isNotEmpty()) { Text("시험 시작") }
             }
-            OutlinedButton(onClick = { showReadingKo = !showReadingKo }) {
-                Text(if (showReadingKo) "한국어 읽기 숨기기" else "한국어 읽기 보기")
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick = { showReadingKo = !showReadingKo }) {
+                    Text(if (showReadingKo) "한국어 읽기 숨기기" else "한국어 읽기 보기")
+                }
+                OutlinedButton(onClick = { showMeaningJa = !showMeaningJa }) {
+                    Text(if (showMeaningJa) "뜻을 한국어로" else "뜻을 일본어로")
+                }
             }
             HorizontalDivider()
             if (uiState.words.isEmpty()) {
@@ -389,6 +395,8 @@ private fun DeckRoute(
                         WordRow(
                             word = word,
                             showReadingKo = showReadingKo,
+                            showMeaningJa = showMeaningJa,
+                            allWords = uiState.words,
                             onClick = { onOpenWord(word.id) },
                         )
                     }
@@ -955,6 +963,8 @@ private fun DeckCard(deck: DeckWithCount, onClick: () -> Unit) {
 private fun WordRow(
     word: WordEntity,
     showReadingKo: Boolean,
+    showMeaningJa: Boolean,
+    allWords: List<WordEntity>,
     onClick: () -> Unit,
 ) {
     Card(
@@ -979,10 +989,10 @@ private fun WordRow(
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(16.dp),
-                verticalAlignment = Alignment.CenterVertically,
+                verticalAlignment = Alignment.Top,
             ) {
                 Column(
-                    modifier = Modifier.weight(0.48f),
+                    modifier = Modifier.weight(0.42f),
                     verticalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
                     Text(
@@ -1006,18 +1016,44 @@ private fun WordRow(
                     }
                 }
                 Column(
-                    modifier = Modifier.weight(0.52f),
-                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                    modifier = Modifier.weight(0.58f),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     Text(
-                        text = word.meaningKo,
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = InkSoft,
+                        text = if (showMeaningJa) "뜻(일본어)" else "뜻(한국어)",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = InkMuted,
                     )
-                    if (word.meaningJa.isNotBlank()) {
-                        Text(
+                    if (showMeaningJa && word.meaningJa.isNotBlank()) {
+                        NonInteractiveJapaneseText(
                             text = word.meaningJa,
-                            style = MaterialTheme.typography.bodyMedium,
+                            currentWordId = word.id,
+                            allWords = allWords,
+                            baseStyle = MaterialTheme.typography.bodyMedium.copy(
+                                fontWeight = FontWeight.Medium,
+                                lineHeight = 20.sp,
+                                letterSpacing = (-0.1).sp,
+                            ),
+                            rubyStyle = MaterialTheme.typography.labelSmall.copy(
+                                fontSize = 9.sp,
+                                lineHeight = 9.sp,
+                                letterSpacing = (-0.1).sp,
+                            ),
+                            baseColor = InkSoft,
+                            rubyColor = SecondaryCoral,
+                        )
+                    } else {
+                        Text(
+                            text = word.meaningKo,
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = InkSoft,
+                        )
+                    }
+                    val secondaryMeaning = if (showMeaningJa) word.meaningKo else word.meaningJa
+                    if (secondaryMeaning.isNotBlank()) {
+                        Text(
+                            text = secondaryMeaning,
+                            style = MaterialTheme.typography.bodySmall,
                             color = InkMuted,
                         )
                     }
@@ -1132,18 +1168,61 @@ private fun LinkedJapaneseText(
     allWords: List<WordEntity>,
     onOpenWord: (Long) -> Unit,
 ) {
-    val sentenceBaseStyle = MaterialTheme.typography.titleMedium.copy(
-        fontWeight = FontWeight.SemiBold,
-        fontSize = 18.sp,
-        lineHeight = 22.sp,
-        letterSpacing = (-0.15).sp,
+    RubySentenceText(
+        text = text,
+        currentWordId = currentWordId,
+        allWords = allWords,
+        baseStyle = MaterialTheme.typography.titleMedium.copy(
+            fontWeight = FontWeight.SemiBold,
+            fontSize = 18.sp,
+            lineHeight = 22.sp,
+            letterSpacing = (-0.15).sp,
+        ),
+        rubyStyle = MaterialTheme.typography.labelSmall.copy(
+            fontSize = 10.sp,
+            lineHeight = 10.sp,
+            letterSpacing = (-0.1).sp,
+        ),
+        baseColor = MaterialTheme.colorScheme.onSurface,
+        rubyColor = SecondaryCoral,
+        onOpenWord = onOpenWord,
     )
-    val sentenceRubyStyle = MaterialTheme.typography.labelSmall.copy(
-        fontSize = 10.sp,
-        lineHeight = 10.sp,
-        letterSpacing = (-0.1).sp,
-    )
+}
 
+@Composable
+private fun NonInteractiveJapaneseText(
+    text: String,
+    currentWordId: Long,
+    allWords: List<WordEntity>,
+    baseStyle: TextStyle,
+    rubyStyle: TextStyle,
+    baseColor: Color,
+    rubyColor: Color,
+) {
+    RubySentenceText(
+        text = text,
+        currentWordId = currentWordId,
+        allWords = allWords,
+        baseStyle = baseStyle,
+        rubyStyle = rubyStyle,
+        baseColor = baseColor,
+        rubyColor = rubyColor,
+        onOpenWord = null,
+    )
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun RubySentenceText(
+    text: String,
+    currentWordId: Long,
+    allWords: List<WordEntity>,
+    baseStyle: TextStyle,
+    rubyStyle: TextStyle,
+    baseColor: Color,
+    rubyColor: Color,
+    onOpenWord: ((Long) -> Unit)?,
+) {
     val segments = remember(text, currentWordId, allWords) {
         buildLinkedSegments(
             text = text,
@@ -1160,27 +1239,34 @@ private fun LinkedJapaneseText(
             when (segment) {
                 is LinkedSegment.Plain -> SentencePlainSegment(
                     text = segment.text,
-                    baseStyle = sentenceBaseStyle,
-                    rubyStyle = sentenceRubyStyle,
-                    baseColor = MaterialTheme.colorScheme.onSurface,
+                    baseStyle = baseStyle,
+                    rubyStyle = rubyStyle,
+                    baseColor = baseColor,
                 )
 
-                is LinkedSegment.WordMatch -> Column(
-                    modifier = Modifier.clickable(enabled = segment.word.id != currentWordId) {
-                        if (segment.word.id != currentWordId) {
-                            onOpenWord(segment.word.id)
+                is LinkedSegment.WordMatch -> {
+                    val modifier = if (onOpenWord != null) {
+                        Modifier.clickable(enabled = segment.word.id != currentWordId) {
+                            if (segment.word.id != currentWordId) {
+                                onOpenWord(segment.word.id)
+                            }
                         }
-                    },
-                    verticalArrangement = Arrangement.spacedBy(0.dp),
-                ) {
-                    InlineRubyText(
-                        displayText = segment.displayText,
-                        readingText = segment.word.readingJa,
-                        baseStyle = sentenceBaseStyle,
-                        rubyStyle = sentenceRubyStyle,
-                        baseColor = if (segment.word.id == currentWordId) InkSoft else PrimaryBlue,
-                        rubyColor = SecondaryCoral,
-                    )
+                    } else {
+                        Modifier
+                    }
+                    Column(
+                        modifier = modifier,
+                        verticalArrangement = Arrangement.spacedBy(0.dp),
+                    ) {
+                        InlineRubyText(
+                            displayText = segment.displayText,
+                            readingText = segment.word.readingJa,
+                            baseStyle = baseStyle,
+                            rubyStyle = rubyStyle,
+                            baseColor = if (onOpenWord == null || segment.word.id == currentWordId) baseColor else PrimaryBlue,
+                            rubyColor = rubyColor,
+                        )
+                    }
                 }
             }
         }
