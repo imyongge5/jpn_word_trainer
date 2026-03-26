@@ -52,9 +52,8 @@
 
 현재 프로젝트는 루트의 `version-series.properties`와 Git 히스토리를 기준으로 `versionName`과 `versionCode`를 자동 계산한다.
 
-### beta 푸시 규칙
+### beta 운영 규칙
 
-- `beta`에 push 또는 `beta`로 머지되면 GitHub Actions가 현재 커밋 기준 `vA.B.CCC` 버전을 계산해 기록한다.
 - 개발자는 `CCC`를 직접 관리하지 않는다.
 - `version-series.properties`에는 `A`, `B`만 저장한다.
 - 새 베타 라인을 시작할 때는 `VERSION_B`를 수동으로 올린다.
@@ -93,7 +92,6 @@ git push origin -f build
 
 태그 기반 자동화가 추가되면:
 
-- `beta`의 push는 현재 beta 버전 계산에 사용
 - `build` 태그는 선택적 릴리즈 APK 빌드 실행에 사용
 - 성공한 `build` 실행은 `vA.B.CCC` 버전 태그, GitHub Release, Firebase 배포를 남긴다
 - `main`의 태그는 정식 릴리즈 기준으로 사용
