@@ -1,9 +1,11 @@
 import java.io.ByteArrayOutputStream
 import java.util.Properties
+import com.google.firebase.appdistribution.gradle.firebaseAppDistribution
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
     id("com.android.application")
+    id("com.google.firebase.appdistribution")
     id("com.google.gms.google-services")
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
@@ -92,8 +94,35 @@ android {
     }
 
     buildTypes {
+        debug {
+            firebaseAppDistribution {
+                artifactType = "APK"
+                providers.environmentVariable("FIREBASE_APP_DISTRIBUTION_GROUPS").orNull?.let {
+                    groups = it
+                }
+                providers.environmentVariable("FIREBASE_APP_DISTRIBUTION_TESTERS").orNull?.let {
+                    testers = it
+                }
+                providers.environmentVariable("FIREBASE_RELEASE_NOTES_FILE").orNull?.let {
+                    releaseNotesFile = it
+                }
+            }
+        }
         release {
+            signingConfig = signingConfigs.getByName("debug")
             isMinifyEnabled = false
+            firebaseAppDistribution {
+                artifactType = "APK"
+                providers.environmentVariable("FIREBASE_APP_DISTRIBUTION_GROUPS").orNull?.let {
+                    groups = it
+                }
+                providers.environmentVariable("FIREBASE_APP_DISTRIBUTION_TESTERS").orNull?.let {
+                    testers = it
+                }
+                providers.environmentVariable("FIREBASE_RELEASE_NOTES_FILE").orNull?.let {
+                    releaseNotesFile = it
+                }
+            }
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
