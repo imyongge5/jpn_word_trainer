@@ -72,7 +72,13 @@
 - 앱의 `versionName`, `versionCode`에 반영하고
 - 릴리즈 APK를 빌드하고
 - 빌드가 성공하면 `vA.B.CCC` 버전 태그를 생성하고
-- Firebase App Distribution 배포와 GitHub Release 생성을 수행한다.
+- GitHub Release 생성을 수행한다.
+
+Firebase 배포 워크플로우는:
+
+- GitHub Release 의 `published` 이벤트를 받고
+- Release 에 첨부된 APK를 다시 내려받아
+- Firebase App Distribution 으로 배포한다.
 
 `build` 태그는 필요할 때마다 다른 커밋으로 옮겨 붙여 재사용한다.
 
@@ -93,7 +99,8 @@ git push origin -f build
 태그 기반 자동화가 추가되면:
 
 - `build` 태그는 선택적 릴리즈 APK 빌드 실행에 사용
-- 성공한 `build` 실행은 `vA.B.CCC` 버전 태그, GitHub Release, Firebase 배포를 남긴다
+- 성공한 `build` 실행은 `vA.B.CCC` 버전 태그와 GitHub Release를 남긴다
+- 생성된 GitHub Release 는 별도 워크플로우에서 Firebase 로 배포된다
 - `main`의 태그는 정식 릴리즈 기준으로 사용
 
 ### GitHub Secret
