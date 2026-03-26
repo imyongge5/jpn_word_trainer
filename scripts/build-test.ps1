@@ -9,20 +9,43 @@ param(
 $ErrorActionPreference = "Stop"
 
 $projectRoot = Split-Path -Parent $PSScriptRoot
-$javaHome = "<ANDROID_JBR>"
-$sdkRoot = "<ANDROID_SDK>"
 $venvPython = Join-Path $projectRoot "venv\Scripts\python.exe"
+
+function Resolve-FirstExistingPath([string[]]$paths) {
+    foreach ($path in $paths) {
+        if ([string]::IsNullOrWhiteSpace($path)) {
+            continue
+        }
+        if (Test-Path $path) {
+            return $path
+        }
+    }
+    return $null
+}
+
+$javaHome = Resolve-FirstExistingPath @(
+    $env:JAVA_HOME
+    (Join-Path ${env:ProgramFiles} "Android\jbr")
+    (Join-Path ${env:ProgramFiles} "Android Studio\jbr")
+)
+
+$sdkRoot = Resolve-FirstExistingPath @(
+    $env:ANDROID_SDK_ROOT
+    $env:ANDROID_HOME
+    (Join-Path ${env:LOCALAPPDATA} "Android\Sdk")
+    (Join-Path ${env:ProgramFiles} "Android SDK")
+)
 
 if (-not (Test-Path (Join-Path $projectRoot "gradlew.bat"))) {
     throw "gradlew.bat not found in $projectRoot"
 }
 
-if (-not (Test-Path $javaHome)) {
-    throw "JAVA_HOME path not found: $javaHome"
+if (-not $javaHome) {
+    throw "JAVA_HOME not found. Set JAVA_HOME or install Android Studio with a bundled JDK."
 }
 
-if (-not (Test-Path $sdkRoot)) {
-    throw "ANDROID_SDK_ROOT path not found: $sdkRoot"
+if (-not $sdkRoot) {
+    throw "ANDROID_SDK_ROOT not found. Set ANDROID_SDK_ROOT or install the Android SDK."
 }
 
 if (-not (Test-Path $venvPython)) {

@@ -7,15 +7,12 @@
 
 ## Dev environment tips
 
-- Android Studio is installed at `<ANDROID_STUDIO>`.
-- The Android Studio bundled JDK is at `<ANDROID_JBR>`.
-- `JAVA_HOME` should point to `<ANDROID_JBR>`.
-- Android SDK is installed at `<ANDROID_SDK>`.
-- `ANDROID_SDK_ROOT` and `ANDROID_HOME` should point to `<ANDROID_SDK>`.
-- Useful SDK tool paths:
-  - `<ANDROID_SDK>\platform-tools`
-  - `<ANDROID_SDK>\emulator`
-  - `<ANDROID_SDK>\cmdline-tools\latest\bin`
+- Set `JAVA_HOME` to the Android Studio bundled JDK or another JDK 17+ install.
+- Set `ANDROID_SDK_ROOT` and `ANDROID_HOME` to the local Android SDK directory.
+- Ensure these SDK tool paths are available from the terminal:
+  - `platform-tools`
+  - `emulator`
+  - `cmdline-tools\latest\bin`
 - If command-line Android tools do not work, verify that `java -version`, `adb version`, and `sdkmanager.bat --version` resolve from a fresh terminal.
 
 ## Emulator notes
@@ -24,7 +21,6 @@
   - AVD name: `S22Ultra_API33`
   - Device profile: `pixel_9_pro_xl`
   - System image: `system-images;android-33;google_apis;x86_64`
-  - AVD path: `<USER_HOME>\.android\avd\S22Ultra_API33.avd`
 - This emulator is intended as an approximate `Galaxy S22 Ultra` test device, not a perfect 1:1 Samsung hardware profile.
 - Run it from CLI with: `emulator.exe -avd S22Ultra_API33`
 
@@ -34,7 +30,7 @@
 - Check adb: `adb version`
 - Check SDK manager: `sdkmanager.bat --version`
 - List emulators: `emulator.exe -list-avds`
-- Launch Android Studio: `& '<ANDROID_STUDIO>'`
+- Launch Android Studio from the local install or IDE shortcut.
 
 ## Python rule
 
