@@ -124,5 +124,5 @@ data
 - 공개 저장소에는 원본 PDF/XLSX 같은 수집 자료를 직접 커밋하지 않도록 `data/sources/`를 분리해 두었습니다.
 - 브랜치/릴리즈 운영 규칙은 `docs/RELEASE_WORKFLOW.md`에 정리되어 있습니다.
 - `beta`에 푸시하면 GitHub Actions가 현재 버전을 계산해 표시합니다.
-- `build` 태그를 옮겨 붙이면 해당 커밋 기준으로 APK 빌드가 실행됩니다.
-- `release-v*` 태그는 GitHub Release와 Firebase App Distribution 배포를 수행합니다.
+- `build` 태그를 옮겨 붙이면 해당 커밋 기준으로 릴리즈 APK 빌드가 실행됩니다.
+- `build` 빌드가 성공하면 `vA.B.CCC` 버전 태그가 생성되고, Firebase App Distribution과 GitHub Release까지 이어집니다.

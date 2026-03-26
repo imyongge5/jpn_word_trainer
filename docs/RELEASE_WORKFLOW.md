@@ -71,7 +71,9 @@
 
 - 해당 커밋의 Git 히스토리에서 현재 `vA.B.CCC`를 계산해
 - 앱의 `versionName`, `versionCode`에 반영하고
-- Android 빌드를 수행한다.
+- 릴리즈 APK를 빌드하고
+- 빌드가 성공하면 `vA.B.CCC` 버전 태그를 생성하고
+- Firebase App Distribution 배포와 GitHub Release 생성을 수행한다.
 
 `build` 태그는 필요할 때마다 다른 커밋으로 옮겨 붙여 재사용한다.
 
@@ -82,31 +84,18 @@ git tag -fa build <커밋해시>
 git push origin -f build
 ```
 
-### 릴리즈 태그 규칙
-
-- 릴리즈 태그
-  - `release-v0.1.22`
-
-릴리즈 태그 워크플로우는:
-
-- 태그에서 `vA.B.CCC` 버전을 읽고
-- GitHub Release를 생성하고
-- Firebase App Distribution으로 APK를 배포한다.
-
 ## 태그 운영 규칙
 
 - 정식 릴리즈 태그
   - `v1.2.0`
 - 빌드 트리거 태그
   - `build`
-- 배포 트리거 태그
-  - `release-v0.1.22`
 
 태그 기반 자동화가 추가되면:
 
 - `beta`의 push는 현재 beta 버전 계산에 사용
-- `build` 태그는 선택적 APK 빌드 실행에 사용
-- `release-v*` 태그는 GitHub Release 생성과 Firebase 배포에 사용
+- `build` 태그는 선택적 릴리즈 APK 빌드 실행에 사용
+- 성공한 `build` 실행은 `vA.B.CCC` 버전 태그, GitHub Release, Firebase 배포를 남긴다
 - `main`의 태그는 정식 릴리즈 기준으로 사용
 
 ## 워크플로 히스토리

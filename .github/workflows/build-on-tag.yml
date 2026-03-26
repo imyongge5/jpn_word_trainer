@@ -7,6 +7,9 @@ on:
     tags:
       - build
 
+permissions:
+  contents: write
+
 jobs:
   build-android:
     runs-on: ubuntu-latest
@@ -46,16 +49,75 @@ jobs:
           version_tag="v${VERSION_A}.${VERSION_B}.${version_ccc}"
           echo "version_tag=$version_tag" >> "$GITHUB_OUTPUT"
 
+      - name: Firebase 배포 대상 확인
+        shell: bash
+        run: |
+          if [ -z "${{ secrets.FIREBASE_APP_DISTRIBUTION_GROUPS }}" ] && [ -z "${{ secrets.FIREBASE_APP_DISTRIBUTION_TESTERS }}" ]; then
+            echo "FIREBASE_APP_DISTRIBUTION_GROUPS 또는 FIREBASE_APP_DISTRIBUTION_TESTERS secret 중 하나가 필요합니다."
+            exit 1
+          fi
+
+      - name: Firebase 서비스 계정 파일 생성
+        shell: bash
+        run: |
+          cat <<'EOF' > "$RUNNER_TEMP/firebase-service-account.json"
+          ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          EOF
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/firebase-service-account.json" >> "$GITHUB_ENV"
+
+      - name: 릴리즈 노트 파일 생성
+        shell: bash
+        run: |
+          notes_file="$RUNNER_TEMP/release-notes.txt"
+          {
+            echo "Build tag: ${{ github.ref_name }}"
+            echo "Version: ${{ steps.version_tag.outputs.version_tag }}"
+            echo "Commit: ${{ github.sha }}"
+          } > "$notes_file"
+          echo "FIREBASE_RELEASE_NOTES_FILE=$notes_file" >> "$GITHUB_ENV"
+
       - name: 프리빌트 시드 DB 생성
         run: python scripts/generate_seed_db.py
 
-      - name: 디버그 APK 빌드
+      - name: 릴리즈 APK 빌드
         env:
           APP_VERSION_TAG: ${{ steps.version_tag.outputs.version_tag }}
-        run: ./gradlew assembleDebug
+          FIREBASE_APP_DISTRIBUTION_GROUPS: ${{ secrets.FIREBASE_APP_DISTRIBUTION_GROUPS }}
+          FIREBASE_APP_DISTRIBUTION_TESTERS: ${{ secrets.FIREBASE_APP_DISTRIBUTION_TESTERS }}
+        run: ./gradlew assembleRelease
 
       - name: APK 업로드
         uses: actions/upload-artifact@v4
         with:
-          name: app-debug-${{ steps.version_tag.outputs.version_tag }}
-          path: app/build/outputs/apk/debug/app-debug.apk
+          name: app-release-${{ steps.version_tag.outputs.version_tag }}
+          path: app/build/outputs/apk/release/app-release.apk
+
+      - name: 버전 태그 생성
+        shell: bash
+        run: |
+          if git rev-parse "${{ steps.version_tag.outputs.version_tag }}" >/dev/null 2>&1; then
+            echo "이미 존재하는 버전 태그입니다: ${{ steps.version_tag.outputs.version_tag }}"
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git tag "${{ steps.version_tag.outputs.version_tag }}"
+            git push origin "${{ steps.version_tag.outputs.version_tag }}"
+          fi
+
+      - name: Firebase App Distribution 배포
+        env:
+          APP_VERSION_TAG: ${{ steps.version_tag.outputs.version_tag }}
+          FIREBASE_APP_DISTRIBUTION_GROUPS: ${{ secrets.FIREBASE_APP_DISTRIBUTION_GROUPS }}
+          FIREBASE_APP_DISTRIBUTION_TESTERS: ${{ secrets.FIREBASE_APP_DISTRIBUTION_TESTERS }}
+        run: ./gradlew appDistributionUploadRelease
+
+      - name: GitHub Release 생성
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version_tag.outputs.version_tag }}
+          name: ${{ steps.version_tag.outputs.version_tag }}
+          files: app/build/outputs/apk/release/app-release.apk
+          body: |
+            Version: ${{ steps.version_tag.outputs.version_tag }}
+            Source tag: ${{ github.ref_name }}
+            Commit: ${{ github.sha }}
