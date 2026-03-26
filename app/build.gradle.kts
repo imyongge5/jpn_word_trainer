@@ -8,11 +8,11 @@ plugins {
 }
 
 android {
-    namespace = "com.example.wordbookapp"
+    namespace = "com.mistbottle.jpnwordtrainer"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.example.wordbookapp"
+        applicationId = "com.mistbottle.jpnwordtrainer"
         minSdk = 26
         targetSdk = 36
         versionCode = 1

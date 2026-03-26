@@ -2,7 +2,7 @@ param(
     [string]$GradleTask = "assembleDebug",
     [switch]$SkipInstall,
     [switch]$PreferEmulator,
-    [string]$PackageName = "com.example.wordbookapp",
+    [string]$PackageName = "com.mistbottle.jpnwordtrainer",
     [string]$LaunchActivity = ".MainActivity"
 )
 
