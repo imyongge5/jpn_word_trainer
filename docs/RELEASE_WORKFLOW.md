@@ -63,28 +63,57 @@
 ### 빌드 태그 규칙
 
 - 빌드 트리거 태그
-  - `build-20260326-1`
+  - `build`
 
-`build-*` 태그는 별도 빌드용 태그다. `beta` 버전 계산만으로는 바로 빌드하지 않는다.
+`build` 태그는 별도 빌드용 움직이는 태그다. `beta` 버전 계산만으로는 바로 빌드하지 않는다.
 
-빌드 워크플로우는 `build-*` 태그에서:
+빌드 워크플로우는 `build` 태그에서:
 
 - 해당 커밋의 Git 히스토리에서 현재 `vA.B.CCC`를 계산해
 - 앱의 `versionName`, `versionCode`에 반영하고
 - Android 빌드를 수행한다.
+
+`build` 태그는 필요할 때마다 다른 커밋으로 옮겨 붙여 재사용한다.
+
+예시:
+
+```bash
+git tag -fa build <커밋해시>
+git push origin -f build
+```
+
+### 릴리즈 태그 규칙
+
+- 릴리즈 태그
+  - `release-v0.1.22`
+
+릴리즈 태그 워크플로우는:
+
+- 태그에서 `vA.B.CCC` 버전을 읽고
+- GitHub Release를 생성하고
+- Firebase App Distribution으로 APK를 배포한다.
 
 ## 태그 운영 규칙
 
 - 정식 릴리즈 태그
   - `v1.2.0`
 - 빌드 트리거 태그
-  - `build-20260326-1`
+  - `build`
+- 배포 트리거 태그
+  - `release-v0.1.22`
 
 태그 기반 자동화가 추가되면:
 
 - `beta`의 push는 현재 beta 버전 계산에 사용
-- `build-*` 태그는 선택적 빌드 실행에 사용
+- `build` 태그는 선택적 APK 빌드 실행에 사용
+- `release-v*` 태그는 GitHub Release 생성과 Firebase 배포에 사용
 - `main`의 태그는 정식 릴리즈 기준으로 사용
+
+## 워크플로 히스토리
+
+- GitHub Actions의 **실행 기록(run history)** 은 계속 쌓인다.
+- 하지만 워크플로 정의 파일 자체는 최신 커밋의 내용만 사용한다.
+- 즉, 예전 실행 결과는 남아도 워크플로 YAML이 누적 수정되는 구조는 아니다.
 
 ## 원칙
 
