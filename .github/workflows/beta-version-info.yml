@@ -1,0 +1,37 @@
+name: beta 버전 정보 갱신
+
+run-name: beta 버전 계산 · ${{ github.ref_name }}
+
+on:
+  push:
+    branches:
+      - beta
+
+jobs:
+  version-info:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 코드 체크아웃
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: 현재 beta 버전 계산
+        shell: bash
+        run: |
+          source version-series.properties
+          base_commit=$(git log -n 1 --format=%H -- version-series.properties)
+          commits_after_base=$(git rev-list --count "${base_commit}..HEAD")
+          version_ccc=$((commits_after_base + 1))
+          version_name="v${VERSION_A}.${VERSION_B}.${version_ccc}"
+
+          {
+            echo "## 현재 beta 버전"
+            echo ""
+            echo "- 브랜치: \`beta\`"
+            echo "- 버전: \`${version_name}\`"
+            echo "- 기준 커밋: \`${GITHUB_SHA}\`"
+            echo ""
+            echo "빌드가 필요하면 별도 \`build-*\` 태그를 현재 커밋에 추가하면 됩니다."
+          } >> "$GITHUB_STEP_SUMMARY"

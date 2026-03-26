@@ -4,6 +4,7 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
     id("com.android.application")
+    id("com.google.gms.google-services")
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
     id("org.jetbrains.kotlin.kapt")
@@ -36,6 +37,16 @@ fun normalizeVersionTag(rawTag: String?): String? {
     }
 }
 
+fun computeVersionFromHistory(versionA: Int, versionB: Int): String {
+    val baseCommit = runGitCommand("log", "-n", "1", "--format=%H", "--", "version-series.properties")
+        ?: return "v$versionA.$versionB.1"
+    val commitsAfterBase = runGitCommand("rev-list", "--count", "$baseCommit..HEAD")
+        ?.toIntOrNull()
+        ?: 0
+    val versionCcc = commitsAfterBase + 1
+    return "v$versionA.$versionB.$versionCcc"
+}
+
 val versionSeries = Properties().apply {
     rootProject.file("version-series.properties").inputStream().use(::load)
 }
@@ -50,12 +61,10 @@ val exactHeadTag = runGitCommand("tag", "--points-at", "HEAD")
     ?.firstOrNull { it != null }
 
 val envVersionTag = normalizeVersionTag(providers.environmentVariable("APP_VERSION_TAG").orNull)
-val nearestVersionTag = normalizeVersionTag(runGitCommand("describe", "--tags", "--match", "v*", "--abbrev=0"))
 
 val resolvedVersionTag = envVersionTag
     ?: exactHeadTag
-    ?: nearestVersionTag
-    ?: "v$versionA.$versionB.0"
+    ?: computeVersionFromHistory(versionA, versionB)
 
 val versionMatch = Regex("""^v(\d+)\.(\d+)\.(\d+)$""").matchEntire(resolvedVersionTag)
     ?: throw GradleException("유효한 버전 태그 형식이 아닙니다: $resolvedVersionTag")

@@ -5,7 +5,7 @@ run-name: 빌드 태그 실행 · ${{ github.ref_name }}
 on:
   push:
     tags:
-      - build-v*
+      - build-*
 
 jobs:
   build-android:
@@ -39,8 +39,11 @@ jobs:
         id: version_tag
         shell: bash
         run: |
-          ref_name="${GITHUB_REF_NAME}"
-          version_tag="${ref_name#build-}"
+          source version-series.properties
+          base_commit=$(git log -n 1 --format=%H -- version-series.properties)
+          commits_after_base=$(git rev-list --count "${base_commit}..HEAD")
+          version_ccc=$((commits_after_base + 1))
+          version_tag="v${VERSION_A}.${VERSION_B}.${version_ccc}"
           echo "version_tag=$version_tag" >> "$GITHUB_OUTPUT"
 
       - name: 프리빌트 시드 DB 생성

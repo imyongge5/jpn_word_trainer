@@ -123,4 +123,4 @@ data
 - 시험 답안은 각 문항마다 즉시 저장되고, 미완료 시험은 이어서 진행할 수 있습니다.
 - 공개 저장소에는 원본 PDF/XLSX 같은 수집 자료를 직접 커밋하지 않도록 `data/sources/`를 분리해 두었습니다.
 - 브랜치/릴리즈 운영 규칙은 `docs/RELEASE_WORKFLOW.md`에 정리되어 있습니다.
-- `beta` 푸시 후 버전 태그는 GitHub Actions가 자동으로 생성합니다.
+- `beta`에 푸시하면 GitHub Actions가 현재 버전을 계산해 표시합니다.
