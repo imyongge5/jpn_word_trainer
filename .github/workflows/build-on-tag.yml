@@ -8,7 +8,7 @@ on:
       - build
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   prepare-version:
@@ -96,8 +96,6 @@ jobs:
       - name: 릴리즈 APK 빌드
         env:
           APP_VERSION_TAG: ${{ needs.prepare-version.outputs.version_tag }}
-          FIREBASE_APP_DISTRIBUTION_GROUPS: ${{ secrets.FIREBASE_APP_DISTRIBUTION_GROUPS }}
-          FIREBASE_APP_DISTRIBUTION_TESTERS: ${{ secrets.FIREBASE_APP_DISTRIBUTION_TESTERS }}
         run: ./gradlew assembleRelease
 
       - name: APK 업로드
@@ -109,6 +107,8 @@ jobs:
   create-version-tag:
     name: 버전 태그 생성
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     needs:
       - prepare-version
       - build-android
@@ -193,6 +193,8 @@ jobs:
   publish-release:
     name: GitHub Release 생성
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     needs:
       - prepare-version
       - build-android
