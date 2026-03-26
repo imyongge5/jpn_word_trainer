@@ -126,4 +126,5 @@ data
 - `build` 태그를 옮겨 붙이면 해당 커밋 기준으로 릴리즈 APK 빌드가 실행됩니다.
 - `build` 빌드가 성공하면 `vA.B.CCC` 버전 태그와 GitHub Release가 생성됩니다.
 - 생성된 GitHub Release는 별도 워크플로우에서 Firebase App Distribution으로 배포됩니다.
+- 필요하면 `릴리즈를 Firebase에 배포` 워크플로우를 수동 실행해서 특정 릴리즈 태그만 다시 Firebase로 보낼 수 있습니다.
 - GitHub Actions에서 버전 태그를 생성하려면 `WORKFLOW_PUSH_TOKEN` secret 이 필요합니다.

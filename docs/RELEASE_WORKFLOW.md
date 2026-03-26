@@ -79,6 +79,7 @@ Firebase 배포 워크플로우는:
 - GitHub Release 의 `published` 이벤트를 받고
 - Release 에 첨부된 APK를 다시 내려받아
 - Firebase App Distribution 으로 배포한다.
+- 필요하면 `workflow_dispatch`로 특정 릴리즈 태그를 입력해 Firebase 배포만 다시 실행할 수 있다.
 
 `build` 태그는 필요할 때마다 다른 커밋으로 옮겨 붙여 재사용한다.
 

@@ -1,11 +1,17 @@
 name: 릴리즈를 Firebase에 배포
 
-run-name: Firebase 배포 · ${{ github.event.release.tag_name }}
+run-name: Firebase 배포 · ${{ inputs.release_tag || github.event.release.tag_name }}
 
 on:
   release:
     types:
       - published
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Firebase로 다시 배포할 릴리즈 태그
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -14,6 +20,8 @@ jobs:
   distribute-firebase:
     name: Firebase App Distribution 배포
     runs-on: ubuntu-latest
+    env:
+      RELEASE_TAG: ${{ inputs.release_tag || github.event.release.tag_name }}
 
     steps:
       - name: 코드 체크아웃
@@ -55,23 +63,63 @@ jobs:
         run: |
           notes_file="$RUNNER_TEMP/release-notes.txt"
           {
-            echo "Release tag: ${{ github.event.release.tag_name }}"
-            echo "Release name: ${{ github.event.release.name }}"
-            echo "Release URL: ${{ github.event.release.html_url }}"
+            echo "Release tag: $RELEASE_TAG"
+            echo "Triggered by: ${{ github.event_name }}"
+            echo "Repository: ${{ github.repository }}"
           } > "$notes_file"
           echo "FIREBASE_RELEASE_NOTES_FILE=$notes_file" >> "$GITHUB_ENV"
 
       - name: 릴리즈 APK 다운로드
         env:
-          GH_TOKEN: ${{ secrets.WORKFLOW_PUSH_TOKEN }}
+          REPO: ${{ github.repository }}
+          TOKEN: ${{ secrets.WORKFLOW_PUSH_TOKEN }}
         shell: bash
         run: |
           mkdir -p app/build/outputs/apk/release
-          gh release download "${{ github.event.release.tag_name }}" --pattern "app-release.apk" --dir app/build/outputs/apk/release
+          python - <<'PY'
+          import json
+          import os
+          import sys
+          import urllib.request
+
+          repo = os.environ["REPO"]
+          token = os.environ["TOKEN"]
+          release_tag = os.environ["RELEASE_TAG"]
+
+          release_url = f"https://api.github.com/repos/{repo}/releases/tags/{release_tag}"
+          req = urllib.request.Request(
+              release_url,
+              headers={
+                  "Authorization": f"Bearer {token}",
+                  "Accept": "application/vnd.github+json",
+                  "User-Agent": "mistbottle-release-distributor",
+              },
+          )
+          with urllib.request.urlopen(req) as response:
+              release = json.load(response)
+
+          assets = release.get("assets", [])
+          target = next((asset for asset in assets if asset.get("name") == "app-release.apk"), None)
+          if not target:
+              raise SystemExit(f"app-release.apk asset not found in release {release_tag}")
+
+          download_req = urllib.request.Request(
+              target["url"],
+              headers={
+                  "Authorization": f"Bearer {token}",
+                  "Accept": "application/octet-stream",
+                  "User-Agent": "mistbottle-release-distributor",
+              },
+          )
+          output_path = os.path.join("app", "build", "outputs", "apk", "release", "app-release.apk")
+          with urllib.request.urlopen(download_req) as response, open(output_path, "wb") as file:
+              file.write(response.read())
+          print(f"Downloaded release asset to {output_path}")
+          PY
 
       - name: Firebase App Distribution 배포
         env:
-          APP_VERSION_TAG: ${{ github.event.release.tag_name }}
+          APP_VERSION_TAG: ${{ env.RELEASE_TAG }}
           FIREBASE_APP_DISTRIBUTION_GROUPS: ${{ secrets.FIREBASE_APP_DISTRIBUTION_GROUPS }}
           FIREBASE_APP_DISTRIBUTION_TESTERS: ${{ secrets.FIREBASE_APP_DISTRIBUTION_TESTERS }}
         run: ./gradlew appDistributionUploadRelease
