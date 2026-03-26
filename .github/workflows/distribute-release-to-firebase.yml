@@ -127,5 +127,6 @@ jobs:
           FIREBASE_APP_DISTRIBUTION_TESTERS: ${{ secrets.FIREBASE_APP_DISTRIBUTION_TESTERS }}
         shell: bash
         run: |
-          test -f "$GOOGLE_APPLICATION_CREDENTIALS"
-          ./gradlew appDistributionUploadRelease -PfirebaseArtifactPath="$FIREBASE_DISTRIBUTION_ARTIFACT_PATH"
+          creds_file="$RUNNER_TEMP/firebase-service-account.json"
+          test -f "$creds_file"
+          ./gradlew appDistributionUploadRelease -PfirebaseServiceCredentialsFile="$creds_file" -PfirebaseArtifactPath="$FIREBASE_DISTRIBUTION_ARTIFACT_PATH"
