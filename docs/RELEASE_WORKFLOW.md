@@ -31,20 +31,43 @@
 
 ## 버전 규칙
 
-- 베타 버전 예시
-  - `1.2.0-beta.1`
-  - `1.2.0-beta.2`
-- 정식 버전 예시
-  - `1.2.0`
+- 버전 표기 형식
+  - `vA.B.CCC`
+- 의미
+  - `A`: 정식 세대 번호
+  - `B`: 베타 라인 번호
+  - `CCC`: 같은 베타 라인에서 푸시할 때마다 1씩 증가하는 번호
+- 예시
+  - `v0.1.22`
+  - `v1.3.4`
 
 같은 기능 묶음은 먼저 베타 버전으로 검증하고, 검증 완료 후 정식 버전으로 승격한다.
+
+### Android 버전 매핑
+
+- `versionName`
+  - `vA.B.CCC` 그대로 사용
+- `versionCode`
+  - `A * 100000 + B * 1000 + CCC`
+
+현재 프로젝트는 루트의 `version.properties`를 기준으로 `versionName`과 `versionCode`를 자동 계산한다.
+
+### beta 푸시 규칙
+
+- `beta`에 푸시할 때는 [push-beta.ps1](/E:/forfun/단어장앱/scripts/push-beta.ps1) 또는 [push-beta.bat](/E:/forfun/단어장앱/scripts/push-beta.bat)을 사용한다.
+- 이 스크립트는 다음 작업을 자동으로 수행한다.
+  - `VERSION_CCC`를 1 증가
+  - `version.properties`를 커밋
+  - `beta` 브랜치로 푸시
+- 새 베타 라인을 시작할 때는 `VERSION_B`를 수동으로 올리고 `VERSION_CCC`를 `0` 또는 `1`로 초기화한다.
+- 새 정식 세대를 시작할 때는 `VERSION_A`를 올리고 `VERSION_B`, `VERSION_CCC`를 초기화한다.
 
 ## 태그 운영 규칙
 
 - 정식 릴리즈 태그
   - `v1.2.0`
 - 베타 릴리즈 태그
-  - `beta-v1.2.0-beta.1`
+  - `beta-v0.1.22`
 
 태그 기반 자동화가 추가되면:
 
