@@ -12,8 +12,10 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.PaddingValues
@@ -55,7 +57,9 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.LocalContentColor
+import androidx.compose.material3.LocalMinimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -98,12 +102,14 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
 import com.example.wordbookapp.data.local.entity.WordEntity
 import com.example.wordbookapp.data.model.DeckWithCount
 import com.example.wordbookapp.data.model.ThemePreset
 import com.example.wordbookapp.data.model.WordField
 import com.example.wordbookapp.data.model.WordOrder
 import com.example.wordbookapp.data.repository.WordbookRepository
+import com.example.wordbookapp.ui.ExamWordCountOption
 import com.example.wordbookapp.ui.theme.DividerSoft
 import com.example.wordbookapp.ui.theme.InkMuted
 import com.example.wordbookapp.ui.theme.InkSoft
@@ -1248,7 +1254,7 @@ private fun ExamSetupRoute(
             modifier = Modifier
                 .fillMaxWidth()
                 .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             Card(
                 shape = RoundedCornerShape(20.dp),
@@ -1258,8 +1264,8 @@ private fun ExamSetupRoute(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 14.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                        .padding(horizontal = 12.dp, vertical = 10.dp),
+                    verticalArrangement = Arrangement.spacedBy(2.dp),
                 ) {
                     Text(
                         text = uiState.deck?.name ?: "AI 단어장",
@@ -1285,10 +1291,10 @@ private fun ExamSetupRoute(
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
                 ) {
                     Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 14.dp),
-                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 10.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
                     ) {
                         Text(
                             text = "진행 중인 시험이 있어요",
@@ -1316,6 +1322,31 @@ private fun ExamSetupRoute(
                 current = uiState.settings.wordOrder,
                 onSelect = viewModel::setWordOrder,
             )
+            if (!uiState.isAiDeck) {
+                ExamBooleanOptionGroup(
+                    title = "출제 범위",
+                    description = if (uiState.settings.onlyUnseenWords) {
+                        "아직 시험 기록이 없는 단어 ${uiState.unseenWordCount}개만 출제합니다."
+                    } else {
+                        "현재 단어장 전체 ${uiState.totalWordCount}개에서 출제합니다."
+                    },
+                    checked = uiState.settings.onlyUnseenWords,
+                    label = "지금까지 안 본 단어만 출제",
+                    onCheckedChange = viewModel::setOnlyUnseenWords,
+                )
+            }
+            ExamWordCountGroup(
+                selectedOption = uiState.selectedWordCountOption,
+                selectedLabel = examWordCountLabel(
+                    option = uiState.selectedWordCountOption,
+                    customInput = uiState.customWordCountInput,
+                    availableWordCount = uiState.availableWordCount,
+                ),
+                customWordCountInput = uiState.customWordCountInput,
+                availableWordCount = uiState.availableWordCount,
+                onSelectOption = viewModel::setWordCountOption,
+                onCustomInputChanged = viewModel::setCustomWordCountInput,
+            )
             SettingGroup(
                 title = "앞면 표시값",
                 selectedLabel = fieldLabel(uiState.settings.frontField),
@@ -1333,7 +1364,7 @@ private fun ExamSetupRoute(
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
             ) {
                 uiState.inProgressExam?.let { inProgress ->
                     AppSecondaryButton(
@@ -1383,7 +1414,10 @@ private fun ExamRoute(
             sessionData.session.revealField != WordField.READING_KO
         val currentIndex = sessionData.answersCount
         val currentWord = sessionData.words[currentIndex]
-        Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        Column(
+            modifier = Modifier.fillMaxSize(),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
             Text("${currentIndex + 1} / ${sessionData.words.size}", style = MaterialTheme.typography.titleMedium)
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -1412,11 +1446,6 @@ private fun ExamRoute(
                             color = MaterialTheme.colorScheme.primary,
                         )
                     }
-                    Text(
-                        text = fieldLabel(sessionData.session.frontField),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = Color(0xFF7A97BB),
-                    )
                     RubyFieldText(
                         word = currentWord,
                         field = sessionData.session.frontField,
@@ -1449,19 +1478,12 @@ private fun ExamRoute(
                     }
                 }
             }
+            Spacer(modifier = Modifier.weight(1f))
             if (uiState.revealed) {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(
-                        onClick = {
-                            scope.launch {
-                                if (viewModel.answer(true)) onFinished()
-                            }
-                        },
-                        modifier = Modifier.weight(1f),
-                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
-                    ) {
-                        Text("맞았어요")
-                    }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
                     OutlinedButton(
                         onClick = {
                             scope.launch {
@@ -1469,9 +1491,26 @@ private fun ExamRoute(
                             }
                         },
                         modifier = Modifier.weight(1f),
-                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 12.dp),
                     ) {
-                        Text("틀렸어요")
+                        Text(
+                            text = "틀렸어요",
+                            style = MaterialTheme.typography.titleMedium,
+                        )
+                    }
+                    Button(
+                        onClick = {
+                            scope.launch {
+                                if (viewModel.answer(true)) onFinished()
+                            }
+                        },
+                        modifier = Modifier.weight(1f),
+                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 12.dp),
+                    ) {
+                        Text(
+                            text = "맞았어요",
+                            style = MaterialTheme.typography.titleMedium,
+                        )
                     }
                 }
             }
@@ -1683,11 +1722,22 @@ private fun AppCompactActionButton(
 
 @Composable
 private fun LoadingView() {
-    Column(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalAlignment = Alignment.CenterHorizontally,
+    var showIndicator by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        delay(120)
+        showIndicator = true
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(48.dp),
+        contentAlignment = Alignment.Center,
     ) {
-        CircularProgressIndicator()
+        if (showIndicator) {
+            CircularProgressIndicator()
+        }
     }
 }
 
@@ -2311,32 +2361,76 @@ private fun WordRow(
     onClick: () -> Unit,
 ) {
     val hasMeaningColumn = showMeaningKo || showMeaningJa
-    val prioritizeJapaneseMeaning = showMeaningJa && !showMeaningKo
+    val showOnlyMeaningKo = showMeaningKo && !showMeaningJa
+    val showOnlyMeaningJa = showMeaningJa && !showMeaningKo
+    val showBothMeanings = showMeaningKo && showMeaningJa
     val leftColumnWeight = when {
         !hasMeaningColumn -> 1f
-        prioritizeJapaneseMeaning -> 0.36f
+        showOnlyMeaningJa -> 0.35f
+        showOnlyMeaningKo -> 0.40f
         else -> 0.42f
     }
-    val rightColumnWeight = if (prioritizeJapaneseMeaning) 0.64f else 0.58f
-    val meaningJaBaseStyle = if (prioritizeJapaneseMeaning) {
-        MaterialTheme.typography.bodyLarge.copy(
+    val rightColumnWeight = when {
+        !hasMeaningColumn -> 0f
+        showOnlyMeaningJa -> 0.65f
+        showOnlyMeaningKo -> 0.60f
+        else -> 0.58f
+    }
+    val kanjiMainStyle = when {
+        !hasMeaningColumn -> MaterialTheme.typography.headlineMedium.copy(
+            fontWeight = FontWeight.Bold,
+            fontSize = 32.sp,
+            lineHeight = 38.sp,
+        )
+        showOnlyMeaningKo -> MaterialTheme.typography.headlineSmall.copy(
+            fontWeight = FontWeight.Bold,
+            fontSize = 29.sp,
+            lineHeight = 34.sp,
+        )
+        showOnlyMeaningJa -> MaterialTheme.typography.titleLarge.copy(
+            fontWeight = FontWeight.Bold,
+            fontSize = 26.sp,
+            lineHeight = 31.sp,
+        )
+        else -> MaterialTheme.typography.titleLarge.copy(
+            fontWeight = FontWeight.Bold,
+            fontSize = 24.sp,
+            lineHeight = 29.sp,
+        )
+    }
+    val meaningKoStyle = when {
+        showOnlyMeaningKo -> MaterialTheme.typography.titleMedium.copy(
+            fontWeight = FontWeight.SemiBold,
+            fontSize = 21.sp,
+            lineHeight = 28.sp,
+            letterSpacing = (-0.15).sp,
+        )
+        showBothMeanings -> MaterialTheme.typography.bodyLarge.copy(
             fontWeight = FontWeight.Medium,
             fontSize = 17.sp,
             lineHeight = 24.sp,
+        )
+        else -> MaterialTheme.typography.bodyLarge
+    }
+    val meaningJaBaseStyle = if (showOnlyMeaningJa) {
+        MaterialTheme.typography.bodyLarge.copy(
+            fontWeight = FontWeight.Medium,
+            fontSize = 18.sp,
+            lineHeight = 26.sp,
             letterSpacing = (-0.1).sp,
         )
     } else {
         MaterialTheme.typography.bodyMedium.copy(
             fontWeight = FontWeight.Medium,
-            fontSize = 15.sp,
-            lineHeight = 22.sp,
+            fontSize = if (showBothMeanings) 14.5.sp else 15.5.sp,
+            lineHeight = if (showBothMeanings) 21.sp else 23.sp,
             letterSpacing = (-0.1).sp,
         )
     }
-    val meaningJaRubyStyle = if (prioritizeJapaneseMeaning) {
+    val meaningJaRubyStyle = if (showOnlyMeaningJa) {
         MaterialTheme.typography.labelSmall.copy(
-            fontSize = 10.sp,
-            lineHeight = 11.sp,
+            fontSize = 10.5.sp,
+            lineHeight = 12.sp,
             letterSpacing = (-0.1).sp,
         )
     } else {
@@ -2367,13 +2461,17 @@ private fun WordRow(
                     .background(Brush.verticalGradient(listOf(PrimaryBlueSoft, SecondaryCoralSoft))),
             )
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(IntrinsicSize.Min),
                 horizontalArrangement = Arrangement.spacedBy(16.dp),
-                verticalAlignment = Alignment.Top,
+                verticalAlignment = if (showOnlyMeaningKo) Alignment.CenterVertically else Alignment.Top,
             ) {
                 Column(
-                    modifier = Modifier.weight(leftColumnWeight),
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                    modifier = Modifier
+                        .weight(leftColumnWeight)
+                        .fillMaxHeight(),
+                    verticalArrangement = if (!hasMeaningColumn) Arrangement.Center else Arrangement.spacedBy(4.dp),
                 ) {
                     if (showPartOfSpeech) {
                         Text(
@@ -2385,7 +2483,7 @@ private fun WordRow(
                     RubyFieldText(
                         word = word,
                         field = WordField.KANJI,
-                        mainStyle = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                        mainStyle = kanjiMainStyle,
                         rubyStyle = MaterialTheme.typography.labelMedium,
                         rubyColor = SecondaryCoral,
                     )
@@ -2399,13 +2497,19 @@ private fun WordRow(
                 }
                 if (hasMeaningColumn) {
                     Column(
-                        modifier = Modifier.weight(rightColumnWeight),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier
+                            .weight(rightColumnWeight)
+                            .fillMaxHeight(),
+                        verticalArrangement = when {
+                            showOnlyMeaningKo -> Arrangement.Center
+                            showOnlyMeaningJa -> Arrangement.Center
+                            else -> Arrangement.spacedBy(8.dp)
+                        },
                     ) {
                         if (showMeaningKo && word.meaningKo.isNotBlank()) {
                             Text(
                                 text = word.meaningKo,
-                                style = MaterialTheme.typography.bodyLarge,
+                                style = meaningKoStyle,
                                 color = InkSoft,
                             )
                         }
@@ -2949,8 +3053,8 @@ private fun <T> SettingGroup(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 14.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+                .padding(horizontal = 10.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
@@ -2963,25 +3067,167 @@ private fun <T> SettingGroup(
             options.chunked(2).forEach { rowOptions ->
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
                     rowOptions.forEach { (value, label) ->
-                        Row(
-                            modifier = Modifier
-                                .weight(1f)
-                                .clip(RoundedCornerShape(14.dp))
-                                .selectable(selected = current == value, onClick = { onSelect(value) })
-                                .padding(horizontal = 2.dp, vertical = 0.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            RadioButton(selected = current == value, onClick = { onSelect(value) })
-                            Text(label, style = MaterialTheme.typography.bodyMedium)
+                        CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {
+                            Row(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .selectable(selected = current == value, onClick = { onSelect(value) })
+                                    .padding(horizontal = 1.dp, vertical = 0.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                RadioButton(selected = current == value, onClick = { onSelect(value) })
+                                Text(label, style = MaterialTheme.typography.bodyMedium)
+                            }
                         }
                     }
                     if (rowOptions.size == 1) {
                         Spacer(modifier = Modifier.weight(1f))
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ExamBooleanOptionGroup(
+    title: String,
+    description: String,
+    checked: Boolean,
+    label: String,
+    onCheckedChange: (Boolean) -> Unit,
+) {
+    Card(
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = PaperElevated),
+        border = BorderStroke(1.dp, DividerSoft),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 10.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                Text(
+                    text = description,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = InkMuted,
+                )
+            }
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .clickable { onCheckedChange(!checked) }
+                    .padding(horizontal = 1.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {
+                    Checkbox(
+                        checked = checked,
+                        onCheckedChange = onCheckedChange,
+                    )
+                }
+                Text(label, style = MaterialTheme.typography.bodyMedium)
+            }
+        }
+    }
+}
+
+@Composable
+private fun ExamWordCountGroup(
+    selectedOption: ExamWordCountOption,
+    selectedLabel: String,
+    customWordCountInput: String,
+    availableWordCount: Int,
+    onSelectOption: (ExamWordCountOption) -> Unit,
+    onCustomInputChanged: (String) -> Unit,
+) {
+    Card(
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = PaperElevated),
+        border = BorderStroke(1.dp, DividerSoft),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 10.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text("출제 단어 수", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                Text(
+                    "현재: $selectedLabel",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = InkMuted,
+                )
+                Text(
+                    "최대 ${availableWordCount}개까지 선택할 수 있어요.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = InkMuted,
+                )
+            }
+            ExamWordCountOption.entries.chunked(2).forEach { rowOptions ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    rowOptions.forEach { option ->
+                        CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {
+                            Row(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .selectable(
+                                        selected = selectedOption == option,
+                                        onClick = { onSelectOption(option) },
+                                    )
+                                    .padding(horizontal = 1.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                RadioButton(
+                                    selected = selectedOption == option,
+                                    onClick = { onSelectOption(option) },
+                                )
+                                Text(option.displayName, style = MaterialTheme.typography.bodyMedium)
+                            }
+                        }
+                    }
+                    if (rowOptions.size == 1) {
+                        Spacer(modifier = Modifier.weight(1f))
+                    }
+                }
+            }
+
+            if (selectedOption == ExamWordCountOption.CUSTOM) {
+                val inputNumber = customWordCountInput.toIntOrNull()
+                val isError = customWordCountInput.isNotBlank() &&
+                    (inputNumber == null || inputNumber !in 1..availableWordCount)
+                OutlinedTextField(
+                    value = customWordCountInput,
+                    onValueChange = onCustomInputChanged,
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("직접 입력") },
+                    placeholder = { Text("1 ~ $availableWordCount") },
+                    singleLine = true,
+                    isError = isError,
+                    supportingText = {
+                        Text(
+                            if (isError) {
+                                "1개 이상, ${availableWordCount}개 이하로 입력해 주세요."
+                            } else {
+                                "입력한 개수만큼만 출제합니다."
+                            },
+                        )
+                    },
+                )
             }
         }
     }
@@ -3168,6 +3414,16 @@ private fun WordEntity.matchesSearchQuery(query: String): Boolean {
 private fun orderLabel(order: WordOrder): String = when (order) {
     WordOrder.SEQUENTIAL -> "순차"
     WordOrder.RANDOM -> "무작위"
+}
+
+private fun examWordCountLabel(
+    option: ExamWordCountOption,
+    customInput: String,
+    availableWordCount: Int,
+): String = when (option) {
+    ExamWordCountOption.ALL -> "전체 ${availableWordCount}개"
+    ExamWordCountOption.CUSTOM -> if (customInput.isBlank()) "직접입력" else "${customInput}개"
+    else -> "${minOf(option.presetCount ?: availableWordCount, availableWordCount)}개"
 }
 
 private fun fieldLabel(field: WordField): String = when (field) {
