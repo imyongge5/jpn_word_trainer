@@ -122,4 +122,4 @@ jobs:
           APP_VERSION_TAG: ${{ env.RELEASE_TAG }}
           FIREBASE_APP_DISTRIBUTION_GROUPS: ${{ secrets.FIREBASE_APP_DISTRIBUTION_GROUPS }}
           FIREBASE_APP_DISTRIBUTION_TESTERS: ${{ secrets.FIREBASE_APP_DISTRIBUTION_TESTERS }}
-        run: ./gradlew appDistributionUploadRelease
+        run: ./gradlew appDistributionUploadRelease -PfirebaseServiceCredentialsFile="$GOOGLE_APPLICATION_CREDENTIALS"

@@ -76,7 +76,8 @@ val appVersionCode = versionMatch.groupValues[1].toInt() * 100_000 +
     versionMatch.groupValues[2].toInt() * 1_000 +
     versionMatch.groupValues[3].toInt()
 val firebaseAndroidAppId = "1:1052747644476:android:0ea792ded8fa02bcd50d39"
-val firebaseServiceCredentialsFile = providers.environmentVariable("GOOGLE_APPLICATION_CREDENTIALS").orNull
+val firebaseServiceCredentialsFile = providers.gradleProperty("firebaseServiceCredentialsFile").orNull
+    ?: providers.environmentVariable("GOOGLE_APPLICATION_CREDENTIALS").orNull
 
 android {
     namespace = "com.mistbottle.jpnwordtrainer"
