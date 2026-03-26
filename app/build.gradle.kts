@@ -75,6 +75,7 @@ val appVersionName = resolvedVersionTag
 val appVersionCode = versionMatch.groupValues[1].toInt() * 100_000 +
     versionMatch.groupValues[2].toInt() * 1_000 +
     versionMatch.groupValues[3].toInt()
+val firebaseAndroidAppId = "1:1052747644476:android:0ea792ded8fa02bcd50d39"
 
 android {
     namespace = "com.mistbottle.jpnwordtrainer"
@@ -96,6 +97,7 @@ android {
     buildTypes {
         debug {
             firebaseAppDistribution {
+                appId = firebaseAndroidAppId
                 artifactType = "APK"
                 providers.environmentVariable("FIREBASE_APP_DISTRIBUTION_GROUPS").orNull?.let {
                     groups = it
@@ -112,6 +114,7 @@ android {
             signingConfig = signingConfigs.getByName("debug")
             isMinifyEnabled = false
             firebaseAppDistribution {
+                appId = firebaseAndroidAppId
                 artifactType = "APK"
                 providers.environmentVariable("FIREBASE_APP_DISTRIBUTION_GROUPS").orNull?.let {
                     groups = it
