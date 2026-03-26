@@ -96,6 +96,16 @@ git push origin -f build
 - 성공한 `build` 실행은 `vA.B.CCC` 버전 태그, GitHub Release, Firebase 배포를 남긴다
 - `main`의 태그는 정식 릴리즈 기준으로 사용
 
+### GitHub Secret
+
+- `FIREBASE_SERVICE_ACCOUNT`
+  - Firebase App Distribution 업로드용 서비스 계정 JSON 전체 내용
+- `FIREBASE_APP_DISTRIBUTION_GROUPS` 또는 `FIREBASE_APP_DISTRIBUTION_TESTERS`
+  - Firebase 배포 대상
+- `WORKFLOW_PUSH_TOKEN`
+  - GitHub Actions가 `vA.B.CCC` 버전 태그를 푸시할 때 사용하는 토큰
+  - workflow 파일이 포함된 커밋에도 태그를 만들 수 있도록 `Contents: write` 와 `Workflows: write` 권한이 필요하다
+
 ## 워크플로 히스토리
 
 - GitHub Actions의 **실행 기록(run history)** 은 계속 쌓인다.
