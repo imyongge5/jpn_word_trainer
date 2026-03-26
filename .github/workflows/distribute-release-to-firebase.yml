@@ -52,10 +52,10 @@ jobs:
 
       - name: Firebase 서비스 계정 파일 생성
         shell: bash
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
         run: |
-          cat <<'EOF' > "$RUNNER_TEMP/firebase-service-account.json"
-          ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
-          EOF
+          echo "$FIREBASE_SERVICE_ACCOUNT" > "$RUNNER_TEMP/firebase-service-account.json"
           echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/firebase-service-account.json" >> "$GITHUB_ENV"
 
       - name: 릴리즈 노트 파일 생성
@@ -120,6 +120,7 @@ jobs:
       - name: Firebase App Distribution 배포
         env:
           APP_VERSION_TAG: ${{ env.RELEASE_TAG }}
+          FIREBASE_DISTRIBUTION_ARTIFACT_PATH: app/build/outputs/apk/release/app-release.apk
           FIREBASE_APP_DISTRIBUTION_GROUPS: ${{ secrets.FIREBASE_APP_DISTRIBUTION_GROUPS }}
           FIREBASE_APP_DISTRIBUTION_TESTERS: ${{ secrets.FIREBASE_APP_DISTRIBUTION_TESTERS }}
-        run: ./gradlew appDistributionUploadRelease -PfirebaseServiceCredentialsFile="$GOOGLE_APPLICATION_CREDENTIALS"
+        run: ./gradlew appDistributionUploadRelease -PfirebaseServiceCredentialsFile="$GOOGLE_APPLICATION_CREDENTIALS" -PfirebaseArtifactPath="$FIREBASE_DISTRIBUTION_ARTIFACT_PATH"

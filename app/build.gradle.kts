@@ -78,6 +78,8 @@ val appVersionCode = versionMatch.groupValues[1].toInt() * 100_000 +
 val firebaseAndroidAppId = "1:1052747644476:android:0ea792ded8fa02bcd50d39"
 val firebaseServiceCredentialsFile = providers.gradleProperty("firebaseServiceCredentialsFile").orNull
     ?: providers.environmentVariable("GOOGLE_APPLICATION_CREDENTIALS").orNull
+val firebaseArtifactPath = providers.gradleProperty("firebaseArtifactPath").orNull
+    ?: providers.environmentVariable("FIREBASE_DISTRIBUTION_ARTIFACT_PATH").orNull
 
 android {
     namespace = "com.mistbottle.jpnwordtrainer"
@@ -103,6 +105,9 @@ android {
                 firebaseServiceCredentialsFile?.let {
                     serviceCredentialsFile = it
                 }
+                firebaseArtifactPath?.let {
+                    artifactPath = it
+                }
                 artifactType = "APK"
                 providers.environmentVariable("FIREBASE_APP_DISTRIBUTION_GROUPS").orNull?.let {
                     groups = it
@@ -122,6 +127,9 @@ android {
                 appId = firebaseAndroidAppId
                 firebaseServiceCredentialsFile?.let {
                     serviceCredentialsFile = it
+                }
+                firebaseArtifactPath?.let {
+                    artifactPath = it
                 }
                 artifactType = "APK"
                 providers.environmentVariable("FIREBASE_APP_DISTRIBUTION_GROUPS").orNull?.let {
