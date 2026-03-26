@@ -1,4 +1,6 @@
-name: beta-version-tag
+name: beta 버전 태그 자동 생성
+
+run-name: beta 버전 태그 생성 · ${{ github.ref_name }}
 
 on:
   push:

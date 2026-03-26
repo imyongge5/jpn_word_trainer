@@ -1,4 +1,6 @@
-name: build-on-tag
+name: 빌드 태그 APK 빌드
+
+run-name: 빌드 태그 실행 · ${{ github.ref_name }}
 
 on:
   push:
