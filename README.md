@@ -100,7 +100,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\build-test.ps1 -PreferEmulato
 ## 프로젝트 구조
 
 ```text
-app/src/main/java/com/example/wordbookapp
+app/src/main/java/com/mistbottle/jpnwordtrainer
 ├─ data
 │  ├─ local
 │  ├─ model
@@ -123,4 +123,4 @@ data
 - 시험 답안은 각 문항마다 즉시 저장되고, 미완료 시험은 이어서 진행할 수 있습니다.
 - 공개 저장소에는 원본 PDF/XLSX 같은 수집 자료를 직접 커밋하지 않도록 `data/sources/`를 분리해 두었습니다.
 - 브랜치/릴리즈 운영 규칙은 `docs/RELEASE_WORKFLOW.md`에 정리되어 있습니다.
-- `beta` 브랜치 푸시는 `scripts/push-beta.bat` 또는 `scripts/push-beta.ps1`를 사용하면 버전 번호가 자동으로 올라갑니다.
+- `beta` 푸시 후 버전 태그는 GitHub Actions가 자동으로 생성합니다.

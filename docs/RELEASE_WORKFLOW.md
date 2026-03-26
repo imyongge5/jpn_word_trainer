@@ -50,28 +50,44 @@
 - `versionCode`
   - `A * 100000 + B * 1000 + CCC`
 
-현재 프로젝트는 루트의 `version.properties`를 기준으로 `versionName`과 `versionCode`를 자동 계산한다.
+현재 프로젝트는 루트의 `version-series.properties`와 Git 태그를 기준으로 `versionName`과 `versionCode`를 자동 계산한다.
 
 ### beta 푸시 규칙
 
-- `beta`에 푸시할 때는 [push-beta.ps1](/E:/forfun/단어장앱/scripts/push-beta.ps1) 또는 [push-beta.bat](/E:/forfun/단어장앱/scripts/push-beta.bat)을 사용한다.
-- 이 스크립트는 다음 작업을 자동으로 수행한다.
-  - `VERSION_CCC`를 1 증가
-  - `version.properties`를 커밋
-  - `beta` 브랜치로 푸시
-- 새 베타 라인을 시작할 때는 `VERSION_B`를 수동으로 올리고 `VERSION_CCC`를 `0` 또는 `1`로 초기화한다.
-- 새 정식 세대를 시작할 때는 `VERSION_A`를 올리고 `VERSION_B`, `VERSION_CCC`를 초기화한다.
+- `beta`에 push 또는 `beta`로 머지되면 GitHub Actions가 자동으로 현재 커밋에 `vA.B.CCC` 태그를 생성한다.
+- 개발자는 `CCC`를 직접 관리하지 않는다.
+- `version-series.properties`에는 `A`, `B`만 저장한다.
+- 새 베타 라인을 시작할 때는 `VERSION_B`를 수동으로 올린다.
+- 새 정식 세대를 시작할 때는 `VERSION_A`를 올리고 `VERSION_B`를 원하는 시작값으로 정리한다.
+
+### 빌드 태그 규칙
+
+- 자동 버전 태그
+  - `v0.1.22`
+- 빌드 트리거 태그
+  - `build-v0.1.22`
+
+`build-v*` 태그는 별도 빌드용 태그다. 자동 버전 태그만 붙는다고 바로 빌드하지 않는다.
+
+빌드 워크플로우는 `build-v*` 태그에서:
+
+- `build-` 접두어를 제거한 `vA.B.CCC`를 읽어
+- 앱의 `versionName`, `versionCode`에 반영하고
+- Android 빌드를 수행한다.
 
 ## 태그 운영 규칙
 
 - 정식 릴리즈 태그
   - `v1.2.0`
 - 베타 릴리즈 태그
-  - `beta-v0.1.22`
+  - `v0.1.22`
+- 빌드 트리거 태그
+  - `build-v0.1.22`
 
 태그 기반 자동화가 추가되면:
 
-- `beta`의 태그는 베타 빌드/테스트 배포에 사용
+- `beta`의 push는 자동 버전 태그 생성에 사용
+- `build-v*` 태그는 선택적 빌드 실행에 사용
 - `main`의 태그는 정식 릴리즈 기준으로 사용
 
 ## 원칙
