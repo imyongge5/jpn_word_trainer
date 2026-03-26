@@ -1,3 +1,4 @@
+import java.util.Properties
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
@@ -7,6 +8,16 @@ plugins {
     id("org.jetbrains.kotlin.kapt")
 }
 
+val versionProperties = Properties().apply {
+    rootProject.file("version.properties").inputStream().use(::load)
+}
+
+val versionA = versionProperties.getProperty("VERSION_A").toInt()
+val versionB = versionProperties.getProperty("VERSION_B").toInt()
+val versionCcc = versionProperties.getProperty("VERSION_CCC").toInt()
+val appVersionName = "v$versionA.$versionB.$versionCcc"
+val appVersionCode = versionA * 100_000 + versionB * 1_000 + versionCcc
+
 android {
     namespace = "com.mistbottle.jpnwordtrainer"
     compileSdk = 36
@@ -15,8 +26,8 @@ android {
         applicationId = "com.mistbottle.jpnwordtrainer"
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = appVersionCode
+        versionName = appVersionName
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
