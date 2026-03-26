@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1052747644476",
+    "project_id": "jpn-word-trainer",
+    "storage_bucket": "jpn-word-trainer.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1052747644476:android:0ea792ded8fa02bcd50d39",
+        "android_client_info": {
+          "package_name": "com.mistbottle.jpnwordtrainer"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD-xV7qsoUkeiO5AVZE2B-Ao9P-3U0AwMg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
