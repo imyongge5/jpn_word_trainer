@@ -202,6 +202,11 @@ class WordbookRepository(
         )
     }
 
+    suspend fun getUnseenWordCountForDeck(deckId: Long): Int = withContext(Dispatchers.IO) {
+        val attemptedWordIds = studyDao.getAllAnswersNewestFirst().map { it.wordId }.toSet()
+        deckDao.getWordsForDeck(deckId).count { it.id !in attemptedWordIds }
+    }
+
     suspend fun createExamSession(
         deckId: Long?,
         settings: ExamSettings,
@@ -212,7 +217,18 @@ class WordbookRepository(
             buildAiWordSelection(limit = requestedWordCount)
         } else {
             requireNotNull(deckId)
-            val deckWords = deckDao.getWordsForDeck(deckId)
+            val attemptedWordIds = if (settings.onlyUnseenWords) {
+                studyDao.getAllAnswersNewestFirst().map { it.wordId }.toSet()
+            } else {
+                emptySet()
+            }
+            val deckWords = deckDao.getWordsForDeck(deckId).let { words ->
+                if (settings.onlyUnseenWords) {
+                    words.filter { it.id !in attemptedWordIds }
+                } else {
+                    words
+                }
+            }
             val orderedWords = when (settings.wordOrder) {
                 WordOrder.SEQUENTIAL -> deckWords
                 WordOrder.RANDOM -> deckWords.shuffled(Random(System.currentTimeMillis()))

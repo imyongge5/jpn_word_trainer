@@ -65,6 +65,8 @@ data class ExamSettings(
     val wordOrder: WordOrder = WordOrder.SEQUENTIAL,
     val frontField: WordField = WordField.KANJI,
     val revealField: WordField = WordField.READING_JA,
+    val wordCount: Int? = null,
+    val onlyUnseenWords: Boolean = false,
 )
 
 data class ExamSessionData(

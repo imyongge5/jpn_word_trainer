@@ -41,7 +41,23 @@ data class ExamSetupUiState(
     val isAiDeck: Boolean = false,
     val canStart: Boolean = false,
     val inProgressExam: InProgressExamData? = null,
+    val totalWordCount: Int = 0,
+    val unseenWordCount: Int = 0,
+    val availableWordCount: Int = 0,
+    val selectedWordCountOption: ExamWordCountOption = ExamWordCountOption.ALL,
+    val customWordCountInput: String = "",
 )
+
+enum class ExamWordCountOption(
+    val displayName: String,
+    val presetCount: Int?,
+) {
+    ALL("전체", null),
+    TEN("10", 10),
+    THIRTY("30", 30),
+    SIXTY("60", 60),
+    CUSTOM("직접입력", null),
+}
 
 data class ExamUiState(
     val isLoading: Boolean = true,

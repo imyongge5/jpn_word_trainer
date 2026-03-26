@@ -158,14 +158,19 @@ class ExamSetupViewModel(
     init {
         viewModelScope.launch {
             val detail = deckId?.let { repository.getDeckDetail(it) }
+            val totalWordCount = if (isAiDeck) 30 else detail?.words?.size ?: 0
+            val unseenWordCount = if (isAiDeck || deckId == null) 0 else repository.getUnseenWordCountForDeck(deckId)
             val inProgressExam = repository.getInProgressExamData(deckId = deckId, isAiDeck = isAiDeck)
             _uiState.value = ExamSetupUiState(
                 isLoading = false,
                 deck = detail?.deck,
                 settings = ExamSettings(),
                 isAiDeck = isAiDeck,
-                canStart = isAiDeck || !detail?.words.isNullOrEmpty(),
+                canStart = isAiDeck || totalWordCount > 0,
                 inProgressExam = inProgressExam,
+                totalWordCount = totalWordCount,
+                unseenWordCount = unseenWordCount,
+                availableWordCount = totalWordCount,
             )
         }
     }
@@ -188,6 +193,65 @@ class ExamSetupViewModel(
         )
     }
 
+    fun setOnlyUnseenWords(value: Boolean) {
+        val updatedSettings = _uiState.value.settings.copy(onlyUnseenWords = value)
+        val updatedAvailableWordCount = resolveAvailableWordCount(
+            isAiDeck = _uiState.value.isAiDeck,
+            totalWordCount = _uiState.value.totalWordCount,
+            unseenWordCount = _uiState.value.unseenWordCount,
+            onlyUnseenWords = value,
+        )
+        _uiState.value = _uiState.value.copy(
+            settings = updatedSettings,
+            availableWordCount = updatedAvailableWordCount,
+            canStart = canStartExam(
+                selectedOption = _uiState.value.selectedWordCountOption,
+                customWordCountInput = _uiState.value.customWordCountInput,
+                availableWordCount = updatedAvailableWordCount,
+                hasWords = updatedAvailableWordCount > 0,
+            ),
+        )
+    }
+
+    fun setWordCountOption(value: ExamWordCountOption) {
+        val resolvedWordCount = when (value) {
+            ExamWordCountOption.ALL -> null
+            ExamWordCountOption.TEN,
+            ExamWordCountOption.THIRTY,
+            ExamWordCountOption.SIXTY -> value.presetCount
+            ExamWordCountOption.CUSTOM -> _uiState.value.customWordCountInput.toIntOrNull()
+        }
+        _uiState.value = _uiState.value.copy(
+            selectedWordCountOption = value,
+            settings = _uiState.value.settings.copy(wordCount = resolvedWordCount),
+            canStart = canStartExam(
+                selectedOption = value,
+                customWordCountInput = _uiState.value.customWordCountInput,
+                availableWordCount = _uiState.value.availableWordCount,
+                hasWords = _uiState.value.isAiDeck || _uiState.value.availableWordCount > 0,
+            ),
+        )
+    }
+
+    fun setCustomWordCountInput(value: String) {
+        val numericOnly = value.filter(Char::isDigit).take(3)
+        val shouldUseCustomValue = _uiState.value.selectedWordCountOption == ExamWordCountOption.CUSTOM
+        _uiState.value = _uiState.value.copy(
+            customWordCountInput = numericOnly,
+            settings = if (shouldUseCustomValue) {
+                _uiState.value.settings.copy(wordCount = numericOnly.toIntOrNull())
+            } else {
+                _uiState.value.settings
+            },
+            canStart = canStartExam(
+                selectedOption = _uiState.value.selectedWordCountOption,
+                customWordCountInput = numericOnly,
+                availableWordCount = _uiState.value.availableWordCount,
+                hasWords = _uiState.value.isAiDeck || _uiState.value.availableWordCount > 0,
+            ),
+        )
+    }
+
     suspend fun startExam(): Long = repository.createExamSession(
         deckId = deckId,
         settings = _uiState.value.settings,
@@ -195,6 +259,28 @@ class ExamSetupViewModel(
     )
 
     fun getInProgressSessionId(): Long? = _uiState.value.inProgressExam?.sessionId
+
+    private fun canStartExam(
+        selectedOption: ExamWordCountOption,
+        customWordCountInput: String,
+        availableWordCount: Int,
+        hasWords: Boolean,
+    ): Boolean {
+        if (!hasWords) return false
+        if (selectedOption != ExamWordCountOption.CUSTOM) return true
+        val customCount = customWordCountInput.toIntOrNull() ?: return false
+        return customCount > 0 && customCount <= availableWordCount
+    }
+
+    private fun resolveAvailableWordCount(
+        isAiDeck: Boolean,
+        totalWordCount: Int,
+        unseenWordCount: Int,
+        onlyUnseenWords: Boolean,
+    ): Int {
+        if (isAiDeck) return totalWordCount
+        return if (onlyUnseenWords) unseenWordCount else totalWordCount
+    }
 }
 
 class ExamViewModel(
