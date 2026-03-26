@@ -1,3 +1,4 @@
+import java.io.ByteArrayOutputStream
 import java.util.Properties
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
@@ -8,15 +9,61 @@ plugins {
     id("org.jetbrains.kotlin.kapt")
 }
 
-val versionProperties = Properties().apply {
-    rootProject.file("version.properties").inputStream().use(::load)
+fun runGitCommand(vararg args: String): String? {
+    val output = ByteArrayOutputStream()
+    val errorOutput = ByteArrayOutputStream()
+    return try {
+        exec {
+            commandLine("git", *args)
+            standardOutput = output
+            this.errorOutput = errorOutput
+            isIgnoreExitValue = true
+        }
+        output.toString().trim().ifBlank { null }
+    } catch (_: Exception) {
+        null
+    }
 }
 
-val versionA = versionProperties.getProperty("VERSION_A").toInt()
-val versionB = versionProperties.getProperty("VERSION_B").toInt()
-val versionCcc = versionProperties.getProperty("VERSION_CCC").toInt()
-val appVersionName = "v$versionA.$versionB.$versionCcc"
-val appVersionCode = versionA * 100_000 + versionB * 1_000 + versionCcc
+fun normalizeVersionTag(rawTag: String?): String? {
+    if (rawTag.isNullOrBlank()) {
+        return null
+    }
+    return when {
+        rawTag.startsWith("build-v") -> rawTag.removePrefix("build-")
+        rawTag.startsWith("v") -> rawTag
+        else -> null
+    }
+}
+
+val versionSeries = Properties().apply {
+    rootProject.file("version-series.properties").inputStream().use(::load)
+}
+
+val versionA = versionSeries.getProperty("VERSION_A").toInt()
+val versionB = versionSeries.getProperty("VERSION_B").toInt()
+
+val exactHeadTag = runGitCommand("tag", "--points-at", "HEAD")
+    ?.lineSequence()
+    ?.map(String::trim)
+    ?.map(::normalizeVersionTag)
+    ?.firstOrNull { it != null }
+
+val envVersionTag = normalizeVersionTag(providers.environmentVariable("APP_VERSION_TAG").orNull)
+val nearestVersionTag = normalizeVersionTag(runGitCommand("describe", "--tags", "--match", "v*", "--abbrev=0"))
+
+val resolvedVersionTag = envVersionTag
+    ?: exactHeadTag
+    ?: nearestVersionTag
+    ?: "v$versionA.$versionB.0"
+
+val versionMatch = Regex("""^v(\d+)\.(\d+)\.(\d+)$""").matchEntire(resolvedVersionTag)
+    ?: throw GradleException("유효한 버전 태그 형식이 아닙니다: $resolvedVersionTag")
+
+val appVersionName = resolvedVersionTag
+val appVersionCode = versionMatch.groupValues[1].toInt() * 100_000 +
+    versionMatch.groupValues[2].toInt() * 1_000 +
+    versionMatch.groupValues[3].toInt()
 
 android {
     namespace = "com.mistbottle.jpnwordtrainer"
