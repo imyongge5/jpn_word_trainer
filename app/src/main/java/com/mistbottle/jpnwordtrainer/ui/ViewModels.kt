@@ -441,14 +441,50 @@ class GlobalStatsViewModel(
         )
     }
 
+    fun loadMoreCompletedTests() {
+        if (_uiState.value.isLoadingMoreCompletedTests || !_uiState.value.hasMoreCompletedTests) return
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoadingMoreCompletedTests = true) }
+            val page = repository.getCompletedTestResultPage(
+                limit = COMPLETED_TEST_PAGE_SIZE,
+                offset = _uiState.value.completedTestsOffset,
+            )
+            _uiState.update {
+                it.copy(
+                    completedTests = it.completedTests + page,
+                    completedTestsOffset = it.completedTestsOffset + page.size,
+                    hasMoreCompletedTests = page.size == COMPLETED_TEST_PAGE_SIZE,
+                    isLoadingMoreCompletedTests = false,
+                )
+            }
+        }
+    }
+
+    fun hideCompletedTest(testId: Long) {
+        viewModelScope.launch {
+            repository.markTestDeleted(testId)
+            val currentRange = _uiState.value.stats?.range ?: StatsDateRange(preset = _uiState.value.selectedPreset)
+            refresh(currentRange)
+        }
+    }
+
     private fun refresh(rangeOverride: StatsDateRange? = null) {
         viewModelScope.launch {
             val range = rangeOverride ?: StatsDateRange(preset = _uiState.value.selectedPreset)
             _uiState.update { it.copy(isLoading = true, customRangeErrorMessage = null) }
+            val stats = repository.getGlobalStats(range)
+            val completedTests = repository.getCompletedTestResultPage(
+                limit = COMPLETED_TEST_PAGE_SIZE,
+                offset = 0,
+            )
             _uiState.value = _uiState.value.copy(
                 isLoading = false,
                 selectedPreset = range.preset,
-                stats = repository.getGlobalStats(range),
+                stats = stats,
+                completedTests = completedTests,
+                completedTestsOffset = completedTests.size,
+                hasMoreCompletedTests = completedTests.size == COMPLETED_TEST_PAGE_SIZE,
+                isLoadingMoreCompletedTests = false,
             )
         }
     }
@@ -457,6 +493,10 @@ class GlobalStatsViewModel(
         LocalDate.parse(value.trim())
     } catch (_: DateTimeParseException) {
         null
+    }
+
+    private companion object {
+        private const val COMPLETED_TEST_PAGE_SIZE = 20
     }
 }
 

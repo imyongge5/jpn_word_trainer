@@ -2391,6 +2391,7 @@ private fun SessionProgressChart(
 @Composable
 private fun SessionSummaryCard(
     session: com.mistbottle.jpnwordtrainer.data.model.SessionSummary,
+    trailingContent: (@Composable () -> Unit)? = null,
 ) {
     Card(
         shape = RoundedCornerShape(18.dp),
@@ -2399,9 +2400,26 @@ private fun SessionSummaryCard(
     ) {
         Column(
             modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            Text(session.deckName, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                ) {
+                    Text(session.deckName, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                    Text(
+                        "시험 #${session.testId}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = InkMuted,
+                    )
+                }
+                trailingContent?.invoke()
+            }
             Text(
                 "정답 ${session.correctCount} / ${session.answeredCount} · 정답률 ${session.accuracyPercent}%",
                 style = MaterialTheme.typography.bodyMedium,
@@ -2595,6 +2613,42 @@ private fun GlobalStatsRoute(
             } else {
                 items(stats.recentSessions) { session ->
                     SessionSummaryCard(session = session)
+                }
+            }
+            item {
+                SectionTitle("완료 시험 기록")
+            }
+            if (uiState.completedTests.isEmpty()) {
+                item {
+                    EmptyHint("완료된 시험 기록이 아직 없어요.")
+                }
+            } else {
+                items(
+                    items = uiState.completedTests,
+                    key = { it.testId },
+                ) { session ->
+                    SessionSummaryCard(
+                        session = session,
+                        trailingContent = {
+                            TextButton(
+                                onClick = { viewModel.hideCompletedTest(session.testId) },
+                                contentPadding = PaddingValues(horizontal = 0.dp, vertical = 0.dp),
+                            ) {
+                                Text("숨기기")
+                            }
+                        },
+                    )
+                }
+                if (uiState.hasMoreCompletedTests) {
+                    item {
+                        OutlinedButton(
+                            onClick = viewModel::loadMoreCompletedTests,
+                            modifier = Modifier.fillMaxWidth(),
+                            enabled = !uiState.isLoadingMoreCompletedTests,
+                        ) {
+                            Text(if (uiState.isLoadingMoreCompletedTests) "불러오는 중..." else "더 보기")
+                        }
+                    }
                 }
             }
             item {

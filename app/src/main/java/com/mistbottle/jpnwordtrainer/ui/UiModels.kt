@@ -10,6 +10,7 @@ import com.mistbottle.jpnwordtrainer.data.model.ExamSettings
 import com.mistbottle.jpnwordtrainer.data.model.GlobalStatsData
 import com.mistbottle.jpnwordtrainer.data.model.HomeData
 import com.mistbottle.jpnwordtrainer.data.model.InProgressExamData
+import com.mistbottle.jpnwordtrainer.data.model.SessionSummary
 import com.mistbottle.jpnwordtrainer.data.model.SessionResult
 import com.mistbottle.jpnwordtrainer.data.model.StatsDatePreset
 import com.mistbottle.jpnwordtrainer.data.model.WordDetailData
@@ -89,6 +90,10 @@ data class GlobalStatsUiState(
     val customEndDateInput: String = "",
     val customRangeErrorMessage: String? = null,
     val stats: GlobalStatsData? = null,
+    val completedTests: List<SessionSummary> = emptyList(),
+    val completedTestsOffset: Int = 0,
+    val hasMoreCompletedTests: Boolean = true,
+    val isLoadingMoreCompletedTests: Boolean = false,
 )
 
 data class WordDetailUiState(
