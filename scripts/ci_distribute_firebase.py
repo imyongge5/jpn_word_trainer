@@ -17,6 +17,26 @@ def log(message: str) -> None:
     print(f"[firebase-distribute] {message}")
 
 
+def normalize_service_account(raw_value: str) -> str:
+    normalized = raw_value.strip().lstrip("\ufeff")
+    if len(normalized) >= 2 and normalized[0] == normalized[-1] and normalized[0] in ("'", '"'):
+        candidate = normalized[1:-1].strip()
+        if candidate.startswith("{") and candidate.endswith("}"):
+            return candidate
+    return normalized
+
+
+def describe_first_character(value: str) -> str:
+    if not value:
+        return "<empty>"
+    first = value[0]
+    if first == "\ufeff":
+        return "BOM(U+FEFF)"
+    if first.isspace():
+        return f"whitespace(U+{ord(first):04X})"
+    return f"{first!r} (U+{ord(first):04X})"
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--version-tag", required=True)
@@ -51,8 +71,10 @@ def main() -> None:
     log("FIREBASE_SERVICE_ACCOUNT environment variable is present.")
 
     log("Checking whether FIREBASE_SERVICE_ACCOUNT looks like a JSON string.")
+    normalized_service_account = normalize_service_account(raw_service_account)
+    log(f"First significant character of FIREBASE_SERVICE_ACCOUNT: {describe_first_character(normalized_service_account)}")
     try:
-        parsed_service_account = json.loads(raw_service_account)
+        parsed_service_account = json.loads(normalized_service_account)
     except json.JSONDecodeError as exc:
         raise SystemExit(f"FIREBASE_SERVICE_ACCOUNT is not valid JSON: {exc}") from exc
     if not isinstance(parsed_service_account, dict):
@@ -70,7 +92,7 @@ def main() -> None:
     else:
         credentials_path = (runner_temp / args.credentials_file_name).resolve()
         log(f"Creating credentials file: {credentials_path}")
-        credentials_path.write_text(raw_service_account, encoding="utf-8")
+        credentials_path.write_text(normalized_service_account, encoding="utf-8")
         log("Checking whether the credentials file was created.")
         if not credentials_path.exists():
             raise SystemExit(f"Credentials file was not created: {credentials_path}")
