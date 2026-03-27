@@ -9,6 +9,8 @@
 - CI/build scripts are split into Python steps under `scripts/ci_*.py`.
 - CI script dependencies are documented in `scripts/requirements-ci.txt`.
 - Build tag workflow now runs the Python CI scripts sequentially for version calculation, Firebase prep, release build, GitHub release publish, and Firebase distribution.
+- User-facing patch notes only include commits whose subject starts with one of: `added_feat:`, `bug_fix:`, `design_fix:`, `changed:`.
+- Prefix가 없는 작업 커밋은 패치노트에 포함되지 않으므로, 실제 사용자에게 보여줄 변경이 완성됐을 때만 위 prefix를 붙입니다.
 - Copy `scripts/local-ci.env.example` to `scripts/local-ci.env` and fill in the local values you want to test with.
 - Local CI workflow smoke test:
   `powershell -ExecutionPolicy Bypass -File .\scripts\test-ci-workflow.ps1`

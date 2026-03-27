@@ -32,12 +32,12 @@ def previous_build_commit(root: pathlib.Path) -> str | None:
 
 
 def collect_messages(root: pathlib.Path, start_commit: str | None, end_commit: str) -> list[str]:
-    revision_range = end_commit if not start_commit else f"{start_commit}..{end_commit}"
-    raw = run(
-        ["git", "log", "--format=%s", revision_range],
-        cwd=root,
-        capture_output=True,
-    ).stdout
+    command = ["git", "log", "--format=%s"]
+    if start_commit:
+        command.append(f"{start_commit}..{end_commit}")
+    else:
+        command.extend(["-n", "1", end_commit])
+    raw = run(command, cwd=root, capture_output=True).stdout
     return [line.strip() for line in raw.splitlines() if line.strip()]
 
 
