@@ -26,15 +26,19 @@ def normalize_service_account(raw_value: str) -> str:
     return normalized
 
 
-def describe_first_character(value: str) -> str:
+def describe_preview(value: str, length: int = 5) -> str:
     if not value:
         return "<empty>"
-    first = value[0]
-    if first == "\ufeff":
-        return "BOM(U+FEFF)"
-    if first.isspace():
-        return f"whitespace(U+{ord(first):04X})"
-    return f"{first!r} (U+{ord(first):04X})"
+    preview = value[:length]
+    parts: list[str] = []
+    for char in preview:
+        if char == "\ufeff":
+            parts.append("BOM(U+FEFF)")
+        elif char.isspace():
+            parts.append(f"whitespace(U+{ord(char):04X})")
+        else:
+            parts.append(f"{char!r}(U+{ord(char):04X})")
+    return ", ".join(parts)
 
 
 def main() -> None:
@@ -72,7 +76,7 @@ def main() -> None:
 
     log("Checking whether FIREBASE_SERVICE_ACCOUNT looks like a JSON string.")
     normalized_service_account = normalize_service_account(raw_service_account)
-    log(f"First significant character of FIREBASE_SERVICE_ACCOUNT: {describe_first_character(normalized_service_account)}")
+    log(f"First significant characters of FIREBASE_SERVICE_ACCOUNT: {describe_preview(normalized_service_account)}")
     try:
         parsed_service_account = json.loads(normalized_service_account)
     except json.JSONDecodeError as exc:
