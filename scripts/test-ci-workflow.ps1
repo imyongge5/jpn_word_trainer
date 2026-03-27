@@ -223,10 +223,6 @@ try {
             throw "version_tag output was not produced"
         }
 
-        Write-Step "Prepare Firebase environment"
-        Run-Command -Description "$venvPython scripts/ci_prepare_firebase.py" -FilePath $venvPython -Arguments @("scripts/ci_prepare_firebase.py", "--note-line", "Build tag: build", "--note-line", "Version: $versionTag", "--note-line", "Commit: $env:GITHUB_SHA")
-        Import-GithubEnv $githubEnv
-
         Write-Step "Build release APK"
         Run-Command -Description "$venvPython scripts/ci_build_release.py --version-tag $versionTag" -FilePath $venvPython -Arguments @("scripts/ci_build_release.py", "--version-tag", $versionTag)
 
@@ -241,16 +237,12 @@ try {
             Write-Host "Skipping Firebase distribution step."
         } else {
             Write-Step "Distribute to Firebase App Distribution"
-            Run-Command -Description "$venvPython scripts/ci_distribute_firebase.py --version-tag $versionTag" -FilePath $venvPython -Arguments @("scripts/ci_distribute_firebase.py", "--version-tag", $versionTag, "--artifact-path", "app/build/outputs/apk/release/app-release.apk")
+            Run-Command -Description "$venvPython scripts/ci_distribute_firebase.py --version-tag $versionTag" -FilePath $venvPython -Arguments @("scripts/ci_distribute_firebase.py", "--version-tag", $versionTag, "--note-line", "Build tag: build", "--note-line", "Version: $versionTag", "--note-line", "Commit: $env:GITHUB_SHA", "--artifact-path", "app/build/outputs/apk/release/app-release.apk")
         }
     } else {
         if ([string]::IsNullOrWhiteSpace($ReleaseTag)) {
             throw "DistributeFirebase mode requires -ReleaseTag"
         }
-
-        Write-Step "Prepare Firebase environment"
-        Run-Command -Description "$venvPython scripts/ci_prepare_firebase.py" -FilePath $venvPython -Arguments @("scripts/ci_prepare_firebase.py", "--note-line", "Release tag: $ReleaseTag", "--note-line", "Triggered by: local-script", "--note-line", "Repository: $env:GITHUB_REPOSITORY")
-        Import-GithubEnv $githubEnv
 
         Write-Step "Download release APK"
         Run-Command -Description "$venvPython scripts/ci_download_release_apk.py --release-tag $ReleaseTag" -FilePath $venvPython -Arguments @("scripts/ci_download_release_apk.py", "--release-tag", $ReleaseTag, "--output-path", "app/build/outputs/apk/release/app-release.apk")
@@ -259,7 +251,7 @@ try {
             Write-Host "Skipping Firebase distribution step."
         } else {
             Write-Step "Distribute to Firebase App Distribution"
-            Run-Command -Description "$venvPython scripts/ci_distribute_firebase.py --version-tag $ReleaseTag" -FilePath $venvPython -Arguments @("scripts/ci_distribute_firebase.py", "--version-tag", $ReleaseTag, "--artifact-path", "app/build/outputs/apk/release/app-release.apk")
+            Run-Command -Description "$venvPython scripts/ci_distribute_firebase.py --version-tag $ReleaseTag" -FilePath $venvPython -Arguments @("scripts/ci_distribute_firebase.py", "--version-tag", $ReleaseTag, "--note-line", "Release tag: $ReleaseTag", "--note-line", "Triggered by: local-script", "--note-line", "Repository: $env:GITHUB_REPOSITORY", "--artifact-path", "app/build/outputs/apk/release/app-release.apk")
         }
     }
 

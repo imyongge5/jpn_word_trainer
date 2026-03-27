@@ -54,13 +54,6 @@ jobs:
         id: version
         run: python scripts/ci_compute_version.py --output-name version_tag
 
-      - name: Firebase 배포 환경 준비
-        run: |
-          python scripts/ci_prepare_firebase.py \
-            --note-line "Build tag: ${{ github.ref_name }}" \
-            --note-line "Version: ${{ steps.version.outputs.version_tag }}" \
-            --note-line "Commit: ${{ github.sha }}"
-
       - name: 릴리즈 APK 빌드
         run: python scripts/ci_build_release.py --version-tag "${{ steps.version.outputs.version_tag }}"
 
@@ -74,4 +67,7 @@ jobs:
         run: |
           python scripts/ci_distribute_firebase.py \
             --version-tag "${{ steps.version.outputs.version_tag }}" \
+            --note-line "Build tag: ${{ github.ref_name }}" \
+            --note-line "Version: ${{ steps.version.outputs.version_tag }}" \
+            --note-line "Commit: ${{ github.sha }}" \
             --artifact-path "app/build/outputs/apk/release/app-release.apk"
