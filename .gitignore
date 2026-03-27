@@ -12,3 +12,6 @@ data/sources/
 *-firebase-adminsdk-*.json
 firebase-adminsdk-*.json
 service-account*.json
+__pycache__/
+*.pyc
+scripts/local-ci.env

@@ -6,5 +6,17 @@
 - Custom Gradle task: `powershell -ExecutionPolicy Bypass -File .\scripts\build-test.ps1 -GradleTask test`
 - Skip emulator install: `powershell -ExecutionPolicy Bypass -File .\scripts\build-test.ps1 -SkipInstall`
 - Prefer emulator even when a real device is connected: `powershell -ExecutionPolicy Bypass -File .\scripts\build-test.ps1 -PreferEmulator`
+- CI/build scripts are split into Python steps under `scripts/ci_*.py`.
+- CI script dependencies are documented in `scripts/requirements-ci.txt`.
+- Build tag workflow now runs the Python CI scripts sequentially for version calculation, Firebase prep, release build, GitHub release publish, and Firebase distribution.
+- Copy `scripts/local-ci.env.example` to `scripts/local-ci.env` and fill in the local values you want to test with.
+- Local CI workflow smoke test:
+  `powershell -ExecutionPolicy Bypass -File .\scripts\test-ci-workflow.ps1`
+- Skip remote release publish while testing locally:
+  `powershell -ExecutionPolicy Bypass -File .\scripts\test-ci-workflow.ps1 -SkipPublishRelease`
+- Test manual Firebase redistribute flow locally:
+  `powershell -ExecutionPolicy Bypass -File .\scripts\test-ci-workflow.ps1 -WorkflowMode DistributeFirebase -ReleaseTag v0.1.26`
+- To use a different env file path, pass `-EnvFilePath .\path\to\local-ci.env`.
+- If you want a one-off local bootstrap for the service account secret only, pass `-ServiceAccountPath .\your-service-account.json`.
 - Enrich bundled words from JMdict examples: `.\venv\Scripts\python.exe .\scripts\enrich_jmdict.py --download-if-missing`
 - Generate prebuilt seed database only: `.\venv\Scripts\python.exe .\scripts\generate_seed_db.py`
