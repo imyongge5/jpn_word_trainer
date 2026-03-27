@@ -4,6 +4,7 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import kotlinx.coroutines.flow.Flow
 import com.mistbottle.jpnwordtrainer.data.local.entity.StudyAnswerEntity
 import com.mistbottle.jpnwordtrainer.data.local.entity.StudySessionEntity
 
@@ -44,14 +45,20 @@ interface StudyDao {
     @Query("SELECT * FROM study_answers ORDER BY answeredAt DESC")
     suspend fun getAllAnswersNewestFirst(): List<StudyAnswerEntity>
 
+    @Query("SELECT COUNT(*) FROM study_answers")
+    fun observeAnswerCount(): Flow<Int>
+
+    @Query("SELECT * FROM study_sessions ORDER BY lastAnsweredAt DESC, startedAt DESC")
+    suspend fun getAllSessions(): List<StudySessionEntity>
+
     @Query(
         """
         SELECT * FROM study_sessions
-        WHERE deckId = :deckId AND completedAt IS NOT NULL
-        ORDER BY completedAt DESC
+        WHERE deckId = :deckId
+        ORDER BY lastAnsweredAt DESC, startedAt DESC
         """,
     )
-    suspend fun getCompletedSessionsForDeck(deckId: Long): List<StudySessionEntity>
+    suspend fun getSessionsForDeck(deckId: Long): List<StudySessionEntity>
 
     @Query(
         """
@@ -65,28 +72,32 @@ interface StudyDao {
     @Query(
         """
         SELECT * FROM study_sessions
-        WHERE completedAt IS NOT NULL
-        ORDER BY completedAt DESC
+        WHERE answeredCount > 0
+        ORDER BY lastAnsweredAt DESC, startedAt DESC
         LIMIT :limit
         """,
     )
-    suspend fun getRecentCompletedSessions(limit: Int): List<StudySessionEntity>
+    suspend fun getRecentAnsweredSessions(limit: Int): List<StudySessionEntity>
 
     @Query(
         """
         UPDATE study_sessions
-        SET totalCount = :totalCount,
+        SET answeredCount = :answeredCount,
             correctCount = :correctCount,
             wrongCount = :wrongCount,
+            lastAnsweredAt = :lastAnsweredAt,
+            status = :status,
             completedAt = :completedAt
         WHERE id = :sessionId
         """,
     )
-    suspend fun completeSession(
+    suspend fun updateSessionProgress(
         sessionId: Long,
-        totalCount: Int,
+        answeredCount: Int,
         correctCount: Int,
         wrongCount: Int,
-        completedAt: Long,
+        lastAnsweredAt: Long,
+        status: String,
+        completedAt: Long?,
     )
 }

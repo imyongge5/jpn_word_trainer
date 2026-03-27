@@ -8,8 +8,12 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.update
+import java.time.LocalDate
+import java.time.format.DateTimeParseException
 import com.mistbottle.jpnwordtrainer.data.model.ExamSettings
 import com.mistbottle.jpnwordtrainer.data.model.HomeData
+import com.mistbottle.jpnwordtrainer.data.model.StatsDatePreset
+import com.mistbottle.jpnwordtrainer.data.model.StatsDateRange
 import com.mistbottle.jpnwordtrainer.data.model.WordDraft
 import com.mistbottle.jpnwordtrainer.data.model.WordField
 import com.mistbottle.jpnwordtrainer.data.model.WordOrder
@@ -374,6 +378,85 @@ class DeckDateStatsViewModel(
                 stats = repository.getDeckDateStats(deckId, dateKey),
             )
         }
+    }
+}
+
+class GlobalStatsViewModel(
+    private val repository: WordbookRepository,
+) : ViewModel() {
+    private val _uiState = MutableStateFlow(GlobalStatsUiState())
+    val uiState: StateFlow<GlobalStatsUiState> = _uiState
+
+    init {
+        refresh()
+    }
+
+    fun setPreset(preset: StatsDatePreset) {
+        _uiState.update {
+            it.copy(
+                selectedPreset = preset,
+                customRangeErrorMessage = null,
+            )
+        }
+        if (preset != StatsDatePreset.CUSTOM) {
+            refresh()
+        }
+    }
+
+    fun setCustomStartDateInput(value: String) {
+        _uiState.update {
+            it.copy(
+                customStartDateInput = value,
+                customRangeErrorMessage = null,
+            )
+        }
+    }
+
+    fun setCustomEndDateInput(value: String) {
+        _uiState.update {
+            it.copy(
+                customEndDateInput = value,
+                customRangeErrorMessage = null,
+            )
+        }
+    }
+
+    fun applyCustomRange() {
+        val startDate = parseLocalDate(_uiState.value.customStartDateInput)
+        val endDate = parseLocalDate(_uiState.value.customEndDateInput)
+        if (startDate == null || endDate == null) {
+            _uiState.update { it.copy(customRangeErrorMessage = "날짜는 yyyy-MM-dd 형식으로 입력해 주세요.") }
+            return
+        }
+        if (endDate.isBefore(startDate)) {
+            _uiState.update { it.copy(customRangeErrorMessage = "종료일은 시작일보다 빠를 수 없어요.") }
+            return
+        }
+        refresh(
+            StatsDateRange(
+                preset = StatsDatePreset.CUSTOM,
+                startDate = startDate,
+                endDate = endDate,
+            ),
+        )
+    }
+
+    private fun refresh(rangeOverride: StatsDateRange? = null) {
+        viewModelScope.launch {
+            val range = rangeOverride ?: StatsDateRange(preset = _uiState.value.selectedPreset)
+            _uiState.update { it.copy(isLoading = true, customRangeErrorMessage = null) }
+            _uiState.value = _uiState.value.copy(
+                isLoading = false,
+                selectedPreset = range.preset,
+                stats = repository.getGlobalStats(range),
+            )
+        }
+    }
+
+    private fun parseLocalDate(value: String): LocalDate? = try {
+        LocalDate.parse(value.trim())
+    } catch (_: DateTimeParseException) {
+        null
     }
 }
 

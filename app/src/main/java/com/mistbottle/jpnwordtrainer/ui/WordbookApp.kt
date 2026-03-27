@@ -105,6 +105,12 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
 import com.mistbottle.jpnwordtrainer.data.local.entity.WordEntity
 import com.mistbottle.jpnwordtrainer.data.model.DeckWithCount
+import com.mistbottle.jpnwordtrainer.data.model.GlobalDailyStat
+import com.mistbottle.jpnwordtrainer.data.model.GlobalStatsSummary
+import com.mistbottle.jpnwordtrainer.data.model.ResultInsight
+import com.mistbottle.jpnwordtrainer.data.model.ResultInsightType
+import com.mistbottle.jpnwordtrainer.data.model.SessionProgressPoint
+import com.mistbottle.jpnwordtrainer.data.model.StatsDatePreset
 import com.mistbottle.jpnwordtrainer.data.model.ThemePreset
 import com.mistbottle.jpnwordtrainer.data.model.WordField
 import com.mistbottle.jpnwordtrainer.data.model.WordOrder
@@ -163,6 +169,16 @@ fun WordbookApp(
                     onOpenAiDeck = { navController.navigate("exam_setup?ai=true") },
                     onDeckCreated = { deckId -> navController.navigate("deck/$deckId") },
                     onOpenAllWords = { navController.navigate("all_words") },
+                    onOpenGlobalStats = { navController.navigate("global_stats") },
+                )
+            }
+            composable("global_stats") {
+                val viewModel: GlobalStatsViewModel = viewModel(
+                    factory = WordbookViewModelFactory { GlobalStatsViewModel(repository) },
+                )
+                GlobalStatsRoute(
+                    viewModel = viewModel,
+                    onBack = { navController.popBackStack() },
                 )
             }
             composable("all_words") {
@@ -323,7 +339,11 @@ fun WordbookApp(
                 ExamRoute(
                     viewModel = viewModel,
                     onBack = { navController.popBackStack() },
-                    onFinished = { navController.navigate("result/$sessionId") },
+                    onFinished = {
+                        navController.navigate("result/$sessionId") {
+                            popUpTo("exam/{sessionId}") { inclusive = true }
+                        }
+                    },
                 )
             }
             composable(
@@ -361,6 +381,7 @@ private fun HomeRoute(
     onOpenAiDeck: () -> Unit,
     onDeckCreated: (Long) -> Unit,
     onOpenAllWords: () -> Unit,
+    onOpenGlobalStats: () -> Unit,
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var showDialog by remember { mutableStateOf(false) }
@@ -455,8 +476,10 @@ private fun HomeRoute(
                 SummaryCard(
                     totalWords = data.totalWordCount,
                     recentSessionCount = data.recentSessions.size,
+                    globalStatsSummary = data.globalStatsSummary,
                     onOpenAiDeck = onOpenAiDeck,
                     onOpenAllWords = onOpenAllWords,
+                    onOpenGlobalStats = onOpenGlobalStats,
                 )
             }
             item {
@@ -524,7 +547,7 @@ private fun HomeRoute(
                             verticalArrangement = Arrangement.spacedBy(4.dp),
                         ) {
                             Text(session.deckName, fontWeight = FontWeight.Bold)
-                            Text("정답 ${session.correctCount} / ${session.totalCount} (${session.accuracyPercent}%)")
+                            Text("정답 ${session.correctCount} / ${session.answeredCount} (${session.accuracyPercent}%)")
                         }
                     }
                 }
@@ -1524,40 +1547,92 @@ private fun ResultRoute(
     onGoHome: () -> Unit,
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    BackHandler(enabled = true) {}
     ScreenContainer(title = "시험 결과") {
         if (uiState.isLoading || uiState.result == null) {
             LoadingView()
             return@ScreenContainer
         }
         val result = uiState.result ?: return@ScreenContainer
-        Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            Card {
-                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(result.summary.deckName, fontWeight = FontWeight.Bold)
-                    Text("총 ${result.summary.totalCount}문제")
-                    Text("정답 ${result.summary.correctCount} / 오답 ${result.summary.wrongCount}")
-                    Text("정답률 ${result.summary.accuracyPercent}%")
-                }
-            }
-            SectionTitle("자주 틀리는 단어")
-            if (result.topMissedWords.isEmpty()) {
-                EmptyHint("아직 통계가 충분하지 않아요.")
-            } else {
-                result.topMissedWords.forEach { stat ->
-                    Card {
-                        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Text(stat.word.kanji, fontWeight = FontWeight.Bold)
-                            Text("${stat.word.readingJa} / ${stat.word.meaningKo}")
-                            Text("누적 오답 ${stat.wrongCount}회 / 응시 ${stat.attemptCount}회")
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            item {
+                Card(
+                    shape = RoundedCornerShape(20.dp),
+                    colors = CardDefaults.cardColors(containerColor = PaperElevated),
+                    border = BorderStroke(1.dp, DividerSoft),
+                ) {
+                    Column(
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        Text(result.summary.deckName, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                        FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            StatsKeyChip("출제", "${result.summary.totalCount}개")
+                            StatsKeyChip("풀이", "${result.summary.answeredCount}개")
+                            StatsKeyChip("정답률", "${result.summary.accuracyPercent}%")
                         }
+                        Text(
+                            "정답 ${result.summary.correctCount} / 오답 ${result.summary.wrongCount}",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = InkSoft,
+                        )
                     }
                 }
             }
-            Button(
-                onClick = onGoHome,
-                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp),
-            ) {
-                Text("홈으로 돌아가기")
+            item {
+                SectionTitle("세션 정답률 흐름")
+            }
+            item {
+                SessionProgressChart(progress = result.progress)
+            }
+            item {
+                SectionTitle("이번 세션에서 틀린 단어")
+            }
+            if (result.missedWords.isEmpty()) {
+                item {
+                    EmptyHint("이번 세션에서는 모든 단어를 맞혔어요.")
+                }
+            } else {
+                items(result.missedWords) { stat ->
+                    StatsWordRow(stat = stat)
+                }
+            }
+            item {
+                SectionTitle("최근 3일 인사이트")
+            }
+            if (result.insights.isEmpty()) {
+                item {
+                    EmptyHint("최근 3일 기준으로 특별한 패턴은 없었어요.")
+                }
+            } else {
+                items(result.insights) { insight ->
+                    ResultInsightCard(insight = insight)
+                }
+            }
+            item {
+                SectionTitle("누적 자주 틀린 단어")
+            }
+            if (result.topMissedWords.isEmpty()) {
+                item {
+                    EmptyHint("아직 누적 통계가 충분하지 않아요.")
+                }
+            } else {
+                items(result.topMissedWords) { stat ->
+                    StatsWordRow(stat = stat)
+                }
+            }
+            item {
+                AppPrimaryButton(
+                    text = "홈으로 돌아가기",
+                    onClick = onGoHome,
+                    modifier = Modifier.fillMaxWidth(),
+                )
             }
         }
     }
@@ -1998,8 +2073,10 @@ private fun AppSearchField(
 private fun SummaryCard(
     totalWords: Int,
     recentSessionCount: Int,
+    globalStatsSummary: GlobalStatsSummary,
     onOpenAiDeck: () -> Unit,
     onOpenAllWords: () -> Unit,
+    onOpenGlobalStats: () -> Unit,
 ) {
     Card {
         Box(
@@ -2024,6 +2101,38 @@ private fun SummaryCard(
                     "최근 시험 ${recentSessionCount}회",
                     color = InkSoft,
                 )
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onOpenGlobalStats() },
+                    shape = RoundedCornerShape(18.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    border = BorderStroke(1.dp, DividerSoft),
+                ) {
+                    Column(
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Text(
+                            "전체 시험 통계",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                        FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            StatsKeyChip("푼 문제", "${globalStatsSummary.totalQuestionCount}개")
+                            StatsKeyChip("푼 단어", "${globalStatsSummary.studiedWordCount}개")
+                            StatsKeyChip("정답률", "${globalStatsSummary.accuracyPercent}%")
+                        }
+                        Text(
+                            "기간별 그래프와 전체 단어 통계를 보려면 눌러 보세요.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = InkSoft,
+                        )
+                    }
+                }
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -2127,7 +2236,7 @@ private fun DeckStatsRoute(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        StatsKeyChip("완료 시험", "${stats.summary.completedSessionCount}회")
+                        StatsKeyChip("시험 기록", "${stats.summary.recordedSessionCount}회")
                         StatsKeyChip("시험 본 단어", "${stats.summary.studiedWordCount}개")
                         StatsKeyChip("미응시 단어", "${stats.summary.unstudiedWordCount}개")
                         StatsKeyChip("누적 정답률", "${stats.summary.accuracyPercent}%")
@@ -2259,6 +2368,349 @@ private fun DeckDateStatsRoute(
                 items(stats.topMissedWords) { stat ->
                     StatsWordRow(stat = stat)
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun GlobalDailyBarChart(
+    stats: List<GlobalDailyStat>,
+) {
+    val chartItems = stats.take(7).reversed()
+    val maxQuestionCount = chartItems.maxOfOrNull { it.totalQuestionCount }?.coerceAtLeast(1) ?: 1
+
+    Card(
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(containerColor = PaperElevated),
+        border = BorderStroke(1.dp, DividerSoft),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Text("최근 일자별 전체 시험량", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.Bottom,
+            ) {
+                chartItems.forEach { daily ->
+                    val totalBarRatio = daily.totalQuestionCount.toFloat() / maxQuestionCount.toFloat()
+                    val wrongBarRatio = daily.wrongCount.toFloat() / maxQuestionCount.toFloat()
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        Box(
+                            modifier = Modifier.height(120.dp),
+                            contentAlignment = Alignment.BottomCenter,
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height((120f * totalBarRatio).dp.coerceAtLeast(6.dp))
+                                    .clip(RoundedCornerShape(topStart = 10.dp, topEnd = 10.dp))
+                                    .background(PrimaryBlueSoft),
+                            )
+                            if (daily.wrongCount > 0) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth(0.6f)
+                                        .height((120f * wrongBarRatio).dp.coerceAtLeast(6.dp))
+                                        .clip(RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp))
+                                        .background(SecondaryCoral),
+                                )
+                            }
+                        }
+                        Text(
+                            text = daily.dateLabel.takeLast(5),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = InkMuted,
+                        )
+                    }
+                }
+            }
+            Text(
+                text = "파랑: 총 문제 수 · 코랄: 오답 수",
+                style = MaterialTheme.typography.bodySmall,
+                color = InkMuted,
+            )
+        }
+    }
+}
+
+@Composable
+private fun SessionProgressChart(
+    progress: List<SessionProgressPoint>,
+) {
+    if (progress.isEmpty()) {
+        EmptyHint("진행 그래프를 그릴 기록이 없어요.")
+        return
+    }
+    val chartItems = progress.takeLast(10)
+    Card(
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(containerColor = PaperElevated),
+        border = BorderStroke(1.dp, DividerSoft),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Text("문항이 쌓일수록 정답률이 어떻게 변했는지 보여줘요.", style = MaterialTheme.typography.bodySmall, color = InkMuted)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.Bottom,
+            ) {
+                chartItems.forEach { point ->
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .height(120.dp)
+                                .fillMaxWidth(),
+                            contentAlignment = Alignment.BottomCenter,
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height((120f * (point.accuracyPercent / 100f)).dp.coerceAtLeast(6.dp))
+                                    .clip(RoundedCornerShape(topStart = 10.dp, topEnd = 10.dp))
+                                    .background(ExamGreen),
+                            )
+                        }
+                        Text("${point.step}", style = MaterialTheme.typography.labelSmall, color = InkMuted)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SessionSummaryCard(
+    session: com.mistbottle.jpnwordtrainer.data.model.SessionSummary,
+) {
+    Card(
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(containerColor = PaperElevated),
+        border = BorderStroke(1.dp, DividerSoft),
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            Text(session.deckName, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+            Text(
+                "정답 ${session.correctCount} / ${session.answeredCount} · 정답률 ${session.accuracyPercent}%",
+                style = MaterialTheme.typography.bodyMedium,
+                color = InkSoft,
+            )
+            Text(
+                if (session.isCompleted) "세션 완료" else "세션 진행 중",
+                style = MaterialTheme.typography.bodySmall,
+                color = InkMuted,
+            )
+        }
+    }
+}
+
+@Composable
+private fun ResultInsightCard(
+    insight: ResultInsight,
+) {
+    val accent = when (insight.type) {
+        ResultInsightType.REPEATED_MISS -> SecondaryCoral
+        ResultInsightType.STREAK_MISS -> PrimaryBlue
+        ResultInsightType.IMPROVED_WORD -> ExamGreen
+    }
+    Card(
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(containerColor = PaperElevated),
+        border = BorderStroke(1.dp, DividerSoft),
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Text(insight.title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, color = accent)
+            Text(insight.message, style = MaterialTheme.typography.bodyMedium, color = InkSoft)
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                insight.words.forEach { word ->
+                    AssistChip(
+                        onClick = {},
+                        label = { Text(word.kanji.ifBlank { word.readingJa }) },
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun StatsDateFilterCard(
+    selectedPreset: StatsDatePreset,
+    customStartDateInput: String,
+    customEndDateInput: String,
+    customRangeErrorMessage: String?,
+    onSelectPreset: (StatsDatePreset) -> Unit,
+    onStartDateChanged: (String) -> Unit,
+    onEndDateChanged: (String) -> Unit,
+    onApplyCustomRange: () -> Unit,
+) {
+    Card(
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(containerColor = PaperElevated),
+        border = BorderStroke(1.dp, DividerSoft),
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Text("기간 필터", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                StatsDatePreset.entries.forEach { preset ->
+                    FilterChip(
+                        selected = selectedPreset == preset,
+                        onClick = { onSelectPreset(preset) },
+                        label = { Text(preset.displayName) },
+                    )
+                }
+            }
+            if (selectedPreset == StatsDatePreset.CUSTOM) {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = customStartDateInput,
+                        onValueChange = onStartDateChanged,
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text("시작일") },
+                        placeholder = { Text("yyyy-MM-dd") },
+                        singleLine = true,
+                    )
+                    OutlinedTextField(
+                        value = customEndDateInput,
+                        onValueChange = onEndDateChanged,
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text("종료일") },
+                        placeholder = { Text("yyyy-MM-dd") },
+                        singleLine = true,
+                    )
+                    if (customRangeErrorMessage != null) {
+                        Text(customRangeErrorMessage, style = MaterialTheme.typography.bodySmall, color = SecondaryCoral)
+                    }
+                    AppSecondaryButton(
+                        text = "기간 적용",
+                        onClick = onApplyCustomRange,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun GlobalStatsRoute(
+    viewModel: GlobalStatsViewModel,
+    onBack: () -> Unit,
+) {
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    ScreenContainer(
+        title = "전체 통계",
+        onBack = onBack,
+    ) {
+        if (uiState.isLoading && uiState.stats == null) {
+            LoadingView()
+            return@ScreenContainer
+        }
+        val stats = uiState.stats ?: return@ScreenContainer
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            item {
+                StatsDateFilterCard(
+                    selectedPreset = uiState.selectedPreset,
+                    customStartDateInput = uiState.customStartDateInput,
+                    customEndDateInput = uiState.customEndDateInput,
+                    customRangeErrorMessage = uiState.customRangeErrorMessage,
+                    onSelectPreset = viewModel::setPreset,
+                    onStartDateChanged = viewModel::setCustomStartDateInput,
+                    onEndDateChanged = viewModel::setCustomEndDateInput,
+                    onApplyCustomRange = viewModel::applyCustomRange,
+                )
+            }
+            item {
+                Text(stats.rangeLabel, style = MaterialTheme.typography.bodyMedium, color = InkMuted)
+            }
+            item {
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    StatsKeyChip("푼 문제", "${stats.summary.totalQuestionCount}개")
+                    StatsKeyChip("푼 단어", "${stats.summary.studiedWordCount}개")
+                    StatsKeyChip("오답", "${stats.summary.totalWrongCount}개")
+                    StatsKeyChip("정답률", "${stats.summary.accuracyPercent}%")
+                }
+            }
+            item {
+                SectionTitle("기간별 추이")
+            }
+            if (stats.dailyStats.isEmpty()) {
+                item {
+                    EmptyHint("선택한 기간에는 그래프로 보여줄 기록이 없어요.")
+                }
+            } else {
+                item {
+                    GlobalDailyBarChart(stats = stats.dailyStats)
+                }
+            }
+            item {
+                SectionTitle("가장 많이 틀린 단어")
+            }
+            if (stats.topMissedWords.isEmpty()) {
+                item {
+                    EmptyHint("선택한 기간에는 오답 기록이 없어요.")
+                }
+            } else {
+                items(stats.topMissedWords) { stat ->
+                    StatsWordRow(stat = stat)
+                }
+            }
+            item {
+                SectionTitle("최근 세션")
+            }
+            if (stats.recentSessions.isEmpty()) {
+                item {
+                    EmptyHint("선택한 기간에는 시험 기록이 없어요.")
+                }
+            } else {
+                items(stats.recentSessions) { session ->
+                    SessionSummaryCard(session = session)
+                }
+            }
+            item {
+                SectionTitle("전체 단어 집계")
+            }
+            items(stats.allWordStats) { stat ->
+                StatsWordRow(stat = stat)
             }
         }
     }

@@ -2,6 +2,7 @@ package com.mistbottle.jpnwordtrainer.data.local.entity
 
 import androidx.room.Entity
 import androidx.room.PrimaryKey
+import com.mistbottle.jpnwordtrainer.data.model.SessionStatus
 import com.mistbottle.jpnwordtrainer.data.model.WordField
 import com.mistbottle.jpnwordtrainer.data.model.WordOrder
 
@@ -16,8 +17,11 @@ data class StudySessionEntity(
     val revealField: WordField,
     val wordIdsSerialized: String,
     val totalCount: Int,
+    val answeredCount: Int,
     val correctCount: Int,
     val wrongCount: Int,
     val startedAt: Long,
+    val lastAnsweredAt: Long,
+    val status: SessionStatus,
     val completedAt: Long?,
 )

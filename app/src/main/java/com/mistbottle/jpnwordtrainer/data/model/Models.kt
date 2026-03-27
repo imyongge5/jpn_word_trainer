@@ -1,5 +1,6 @@
 package com.mistbottle.jpnwordtrainer.data.model
 
+import java.time.LocalDate
 import com.mistbottle.jpnwordtrainer.data.local.entity.DeckEntity
 import com.mistbottle.jpnwordtrainer.data.local.entity.StudySessionEntity
 import com.mistbottle.jpnwordtrainer.data.local.entity.WordEntity
@@ -34,6 +35,27 @@ enum class WordField {
     READING_JA,
     READING_KO,
     MEANING_KO,
+}
+
+enum class SessionStatus {
+    IN_PROGRESS,
+    COMPLETED,
+}
+
+enum class StatsDatePreset(
+    val displayName: String,
+) {
+    TODAY("오늘"),
+    LAST_7_DAYS("7일"),
+    LAST_30_DAYS("30일"),
+    ALL("전체"),
+    CUSTOM("직접 선택"),
+}
+
+enum class ResultInsightType {
+    REPEATED_MISS,
+    STREAK_MISS,
+    IMPROVED_WORD,
 }
 
 data class DeckWithCount(
@@ -87,9 +109,12 @@ data class SessionSummary(
     val sessionId: Long,
     val deckName: String,
     val totalCount: Int,
+    val answeredCount: Int,
     val correctCount: Int,
     val wrongCount: Int,
     val accuracyPercent: Int,
+    val recordedAt: Long,
+    val isCompleted: Boolean,
 )
 
 data class WordAggregateStat(
@@ -101,9 +126,27 @@ data class WordAggregateStat(
     val isFrequentlyMissed: Boolean,
 )
 
+data class SessionProgressPoint(
+    val step: Int,
+    val answeredCount: Int,
+    val correctCount: Int,
+    val wrongCount: Int,
+    val accuracyPercent: Int,
+)
+
+data class ResultInsight(
+    val type: ResultInsightType,
+    val title: String,
+    val message: String,
+    val words: List<WordEntity>,
+)
+
 data class SessionResult(
     val summary: SessionSummary,
+    val progress: List<SessionProgressPoint>,
     val topMissedWords: List<WordAggregateStat>,
+    val missedWords: List<WordAggregateStat>,
+    val insights: List<ResultInsight>,
 )
 
 data class DeckStatsSummary(
@@ -112,7 +155,7 @@ data class DeckStatsSummary(
     val totalWordCount: Int,
     val studiedWordCount: Int,
     val unstudiedWordCount: Int,
-    val completedSessionCount: Int,
+    val recordedSessionCount: Int,
     val totalQuestionCount: Int,
     val totalWrongCount: Int,
     val accuracyPercent: Int,
@@ -138,6 +181,7 @@ data class DeckStatsData(
 data class DeckDateSessionSummary(
     val sessionId: Long,
     val completedAt: Long,
+    val answeredCount: Int,
     val totalCount: Int,
     val correctCount: Int,
     val wrongCount: Int,
@@ -156,11 +200,48 @@ data class DeckDateStatsData(
     val topMissedWords: List<WordAggregateStat>,
 )
 
+data class StatsDateRange(
+    val preset: StatsDatePreset = StatsDatePreset.LAST_7_DAYS,
+    val startDate: LocalDate? = null,
+    val endDate: LocalDate? = null,
+)
+
+data class GlobalStatsSummary(
+    val totalQuestionCount: Int,
+    val studiedWordCount: Int,
+    val totalCorrectCount: Int,
+    val totalWrongCount: Int,
+    val recordedSessionCount: Int,
+    val accuracyPercent: Int,
+)
+
+data class GlobalDailyStat(
+    val dateKey: String,
+    val dateLabel: String,
+    val recordedSessionCount: Int,
+    val totalQuestionCount: Int,
+    val correctCount: Int,
+    val wrongCount: Int,
+    val uniqueWordCount: Int,
+    val accuracyPercent: Int,
+)
+
+data class GlobalStatsData(
+    val range: StatsDateRange,
+    val rangeLabel: String,
+    val summary: GlobalStatsSummary,
+    val topMissedWords: List<WordAggregateStat>,
+    val allWordStats: List<WordAggregateStat>,
+    val dailyStats: List<GlobalDailyStat>,
+    val recentSessions: List<SessionSummary>,
+)
+
 data class HomeData(
     val jlptDecks: List<DeckWithCount>,
     val customDecks: List<DeckWithCount>,
     val totalWordCount: Int,
     val recentSessions: List<SessionSummary>,
+    val globalStatsSummary: GlobalStatsSummary,
 )
 
 data class DeckDetailData(

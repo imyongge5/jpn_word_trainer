@@ -23,7 +23,7 @@ import com.mistbottle.jpnwordtrainer.data.local.entity.WordEntity
         StudySessionEntity::class,
         WordEntity::class,
     ],
-    version = 2,
+    version = 3,
     exportSchema = false,
 )
 @TypeConverters(Converters::class)

@@ -7,9 +7,11 @@ import com.mistbottle.jpnwordtrainer.data.model.DeckDateStatsData
 import com.mistbottle.jpnwordtrainer.data.model.DeckStatsData
 import com.mistbottle.jpnwordtrainer.data.model.ExamSessionData
 import com.mistbottle.jpnwordtrainer.data.model.ExamSettings
+import com.mistbottle.jpnwordtrainer.data.model.GlobalStatsData
 import com.mistbottle.jpnwordtrainer.data.model.HomeData
 import com.mistbottle.jpnwordtrainer.data.model.InProgressExamData
 import com.mistbottle.jpnwordtrainer.data.model.SessionResult
+import com.mistbottle.jpnwordtrainer.data.model.StatsDatePreset
 import com.mistbottle.jpnwordtrainer.data.model.WordDetailData
 import com.mistbottle.jpnwordtrainer.data.model.WordDraft
 
@@ -78,6 +80,15 @@ data class DeckStatsUiState(
 data class DeckDateStatsUiState(
     val isLoading: Boolean = true,
     val stats: DeckDateStatsData? = null,
+)
+
+data class GlobalStatsUiState(
+    val isLoading: Boolean = true,
+    val selectedPreset: StatsDatePreset = StatsDatePreset.LAST_7_DAYS,
+    val customStartDateInput: String = "",
+    val customEndDateInput: String = "",
+    val customRangeErrorMessage: String? = null,
+    val stats: GlobalStatsData? = null,
 )
 
 data class WordDetailUiState(
