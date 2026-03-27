@@ -8,110 +8,17 @@ on:
       - build
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
-  prepare-version:
-    name: 버전 계산
+  build-release-and-distribute:
+    name: 빌드 태그 스크립트 실행
     runs-on: ubuntu-latest
-    outputs:
-      version_tag: ${{ steps.version_tag.outputs.version_tag }}
-
-    steps:
-      - name: 코드 체크아웃
-        uses: actions/checkout@v5
-        with:
-          fetch-depth: 0
-
-      - name: 대상 버전 계산
-        id: version_tag
-        shell: bash
-        run: |
-          source version-series.properties
-          base_commit=$(git log -n 1 --format=%H -- version-series.properties)
-          commits_after_base=$(git rev-list --count "${base_commit}..HEAD")
-          version_ccc=$((commits_after_base + 1))
-          version_tag="v${VERSION_A}.${VERSION_B}.${version_ccc}"
-          echo "version_tag=$version_tag" >> "$GITHUB_OUTPUT"
-
-      - name: Firebase 배포 대상 확인
-        shell: bash
-        run: |
-          if [ -z "${{ secrets.FIREBASE_APP_DISTRIBUTION_GROUPS }}" ] && [ -z "${{ secrets.FIREBASE_APP_DISTRIBUTION_TESTERS }}" ]; then
-            echo "FIREBASE_APP_DISTRIBUTION_GROUPS 또는 FIREBASE_APP_DISTRIBUTION_TESTERS secret 중 하나가 필요합니다."
-            exit 1
-          fi
-
-  build-android:
-    name: 릴리즈 APK 빌드
-    runs-on: ubuntu-latest
-    needs: prepare-version
-
-    steps:
-      - name: 코드 체크아웃
-        uses: actions/checkout@v5
-        with:
-          fetch-depth: 0
-
-      - name: JDK 17 설정
-        uses: actions/setup-java@v5
-        with:
-          distribution: temurin
-          java-version: '17'
-          cache: gradle
-
-      - name: Python 설정
-        uses: actions/setup-python@v6
-        with:
-          python-version: '3.x'
-
-      - name: Android SDK 준비
-        uses: android-actions/setup-android@v3
-
-      - name: Gradle 실행 권한 부여
-        run: chmod +x ./gradlew
-
-      - name: Firebase 서비스 계정 파일 생성
-        shell: bash
-        run: |
-          cat <<'EOF' > "$RUNNER_TEMP/firebase-service-account.json"
-          ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
-          EOF
-          echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/firebase-service-account.json" >> "$GITHUB_ENV"
-
-      - name: 릴리즈 노트 파일 생성
-        shell: bash
-        run: |
-          notes_file="$RUNNER_TEMP/release-notes.txt"
-          {
-            echo "Build tag: ${{ github.ref_name }}"
-            echo "Version: ${{ needs.prepare-version.outputs.version_tag }}"
-            echo "Commit: ${{ github.sha }}"
-          } > "$notes_file"
-          echo "FIREBASE_RELEASE_NOTES_FILE=$notes_file" >> "$GITHUB_ENV"
-
-      - name: 프리빌트 시드 DB 생성
-        run: python scripts/generate_seed_db.py
-
-      - name: 릴리즈 APK 빌드
-        env:
-          APP_VERSION_TAG: ${{ needs.prepare-version.outputs.version_tag }}
-        run: ./gradlew assembleRelease
-
-      - name: APK 업로드
-        uses: actions/upload-artifact@v4
-        with:
-          name: app-release-${{ needs.prepare-version.outputs.version_tag }}
-          path: app/build/outputs/apk/release/app-release.apk
-
-  create-version-tag:
-    name: 버전 태그 생성
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    needs:
-      - prepare-version
-      - build-android
+    env:
+      FIREBASE_APP_DISTRIBUTION_GROUPS: ${{ secrets.FIREBASE_APP_DISTRIBUTION_GROUPS }}
+      FIREBASE_APP_DISTRIBUTION_TESTERS: ${{ secrets.FIREBASE_APP_DISTRIBUTION_TESTERS }}
+      FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+      WORKFLOW_PUSH_TOKEN: ${{ secrets.WORKFLOW_PUSH_TOKEN }}
 
     steps:
       - name: 코드 체크아웃
@@ -120,52 +27,51 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: 태그 푸시 토큰 확인
-        shell: bash
-        run: |
-          if [ -z "${{ secrets.WORKFLOW_PUSH_TOKEN }}" ]; then
-            echo "WORKFLOW_PUSH_TOKEN secret 이 필요합니다."
-            echo "workflow 파일이 포함된 커밋에도 버전 태그를 달 수 있도록 Contents: write 와 Workflows: write 권한이 있는 토큰을 넣어주세요."
-            exit 1
-          fi
-
-      - name: 태그 생성 및 푸시
-        shell: bash
-        run: |
-          if git rev-parse "${{ needs.prepare-version.outputs.version_tag }}" >/dev/null 2>&1; then
-            echo "이미 존재하는 버전 태그입니다: ${{ needs.prepare-version.outputs.version_tag }}"
-          else
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git tag "${{ needs.prepare-version.outputs.version_tag }}"
-            git push "https://x-access-token:${{ secrets.WORKFLOW_PUSH_TOKEN }}@github.com/${{ github.repository }}.git" "${{ needs.prepare-version.outputs.version_tag }}"
-          fi
-
-  publish-release:
-    name: GitHub Release 생성
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    needs:
-      - prepare-version
-      - build-android
-      - create-version-tag
-
-    steps:
-      - name: APK 아티팩트 다운로드
-        uses: actions/download-artifact@v5
+      - name: JDK 17 설정
+        uses: actions/setup-java@v5
         with:
-          name: app-release-${{ needs.prepare-version.outputs.version_tag }}
-          path: app/build/outputs/apk/release
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
 
-      - name: GitHub Release 생성
-        uses: softprops/action-gh-release@v2
+      - name: Python 설정
+        uses: actions/setup-python@v6
         with:
-          token: ${{ secrets.WORKFLOW_PUSH_TOKEN }}
-          tag_name: ${{ needs.prepare-version.outputs.version_tag }}
-          name: ${{ needs.prepare-version.outputs.version_tag }}
-          files: app/build/outputs/apk/release/app-release.apk
-          body: |
-            Version: ${{ needs.prepare-version.outputs.version_tag }}
-            Source tag: ${{ github.ref_name }}
-            Commit: ${{ github.sha }}
+          python-version: "3.x"
+
+      - name: CI 스크립트 의존성 설치
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r scripts/requirements-ci.txt
+
+      - name: Android SDK 준비
+        uses: android-actions/setup-android@v3
+
+      - name: Gradle 실행 권한 부여
+        run: chmod +x ./gradlew
+
+      - name: 버전 계산
+        id: version
+        run: python scripts/ci_compute_version.py --output-name version_tag
+
+      - name: Firebase 배포 환경 준비
+        run: |
+          python scripts/ci_prepare_firebase.py \
+            --note-line "Build tag: ${{ github.ref_name }}" \
+            --note-line "Version: ${{ steps.version.outputs.version_tag }}" \
+            --note-line "Commit: ${{ github.sha }}"
+
+      - name: 릴리즈 APK 빌드
+        run: python scripts/ci_build_release.py --version-tag "${{ steps.version.outputs.version_tag }}"
+
+      - name: 버전 태그 및 GitHub Release 발행
+        run: |
+          python scripts/ci_publish_release.py \
+            --version-tag "${{ steps.version.outputs.version_tag }}" \
+            --apk-path "app/build/outputs/apk/release/app-release.apk"
+
+      - name: Firebase App Distribution 배포
+        run: |
+          python scripts/ci_distribute_firebase.py \
+            --version-tag "${{ steps.version.outputs.version_tag }}" \
+            --artifact-path "app/build/outputs/apk/release/app-release.apk"
