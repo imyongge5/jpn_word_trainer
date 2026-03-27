@@ -10,8 +10,9 @@ import com.mistbottle.jpnwordtrainer.data.local.dao.WordDao
 import com.mistbottle.jpnwordtrainer.data.local.entity.AppSettingEntity
 import com.mistbottle.jpnwordtrainer.data.local.entity.DeckEntity
 import com.mistbottle.jpnwordtrainer.data.local.entity.DeckWordCrossRef
-import com.mistbottle.jpnwordtrainer.data.local.entity.StudyAnswerEntity
-import com.mistbottle.jpnwordtrainer.data.local.entity.StudySessionEntity
+import com.mistbottle.jpnwordtrainer.data.local.entity.EndedTestResultEntity
+import com.mistbottle.jpnwordtrainer.data.local.entity.TestEntity
+import com.mistbottle.jpnwordtrainer.data.local.entity.TestWordLogEntity
 import com.mistbottle.jpnwordtrainer.data.local.entity.WordEntity
 
 @Database(
@@ -19,11 +20,12 @@ import com.mistbottle.jpnwordtrainer.data.local.entity.WordEntity
         AppSettingEntity::class,
         DeckEntity::class,
         DeckWordCrossRef::class,
-        StudyAnswerEntity::class,
-        StudySessionEntity::class,
+        EndedTestResultEntity::class,
+        TestEntity::class,
+        TestWordLogEntity::class,
         WordEntity::class,
     ],
-    version = 3,
+    version = 4,
     exportSchema = false,
 )
 @TypeConverters(Converters::class)

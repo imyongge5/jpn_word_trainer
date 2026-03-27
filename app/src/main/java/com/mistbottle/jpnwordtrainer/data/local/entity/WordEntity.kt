@@ -17,5 +17,6 @@ data class WordEntity(
     val exampleKo: String,
     val tag: String,
     val note: String,
+    val isKanaOnly: Boolean = false,
     val createdAt: Long,
 )

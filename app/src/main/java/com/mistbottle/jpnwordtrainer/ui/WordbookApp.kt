@@ -106,7 +106,6 @@ import kotlinx.coroutines.delay
 import com.mistbottle.jpnwordtrainer.data.local.entity.WordEntity
 import com.mistbottle.jpnwordtrainer.data.model.DeckWithCount
 import com.mistbottle.jpnwordtrainer.data.model.GlobalDailyStat
-import com.mistbottle.jpnwordtrainer.data.model.GlobalStatsSummary
 import com.mistbottle.jpnwordtrainer.data.model.ResultInsight
 import com.mistbottle.jpnwordtrainer.data.model.ResultInsightType
 import com.mistbottle.jpnwordtrainer.data.model.SessionProgressPoint
@@ -475,8 +474,6 @@ private fun HomeRoute(
             item {
                 SummaryCard(
                     totalWords = data.totalWordCount,
-                    recentSessionCount = data.recentSessions.size,
-                    globalStatsSummary = data.globalStatsSummary,
                     onOpenAiDeck = onOpenAiDeck,
                     onOpenAllWords = onOpenAllWords,
                     onOpenGlobalStats = onOpenGlobalStats,
@@ -531,25 +528,6 @@ private fun HomeRoute(
                         onStartExam = { onStartDeckExam(deck.id) },
                         onOpenStats = { onOpenDeckStats(deck.id) },
                     )
-                }
-            }
-            if (data.recentSessions.isNotEmpty()) {
-                item {
-                    SectionTitle("최근 시험")
-                }
-                items(data.recentSessions) { session ->
-                    Card(
-                        shape = RoundedCornerShape(20.dp),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-                            verticalArrangement = Arrangement.spacedBy(4.dp),
-                        ) {
-                            Text(session.deckName, fontWeight = FontWeight.Bold)
-                            Text("정답 ${session.correctCount} / ${session.answeredCount} (${session.accuracyPercent}%)")
-                        }
-                    }
                 }
             }
         }
@@ -1442,6 +1420,11 @@ private fun ExamRoute(
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             Text("${currentIndex + 1} / ${sessionData.words.size}", style = MaterialTheme.typography.titleMedium)
+            Text(
+                "카드를 터치해 정답을 확인하세요",
+                style = MaterialTheme.typography.bodyMedium,
+                color = InkSoft,
+            )
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(28.dp),
@@ -1453,51 +1436,45 @@ private fun ExamRoute(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .height(340.dp)
                         .padding(horizontal = 22.dp, vertical = 20.dp)
                         .clickable(enabled = !uiState.revealed) { viewModel.reveal() },
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalArrangement = Arrangement.Center,
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(999.dp)),
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(18.dp),
                     ) {
-                        Text(
-                            text = if (uiState.revealed) "정답 공개됨" else "터치해서 보기",
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.primary,
-                        )
-                    }
-                    RubyFieldText(
-                        word = currentWord,
-                        field = sessionData.session.frontField,
-                        mainStyle = MaterialTheme.typography.headlineSmall,
-                        rubyStyle = MaterialTheme.typography.labelMedium,
-                        showRuby = showExamRuby,
-                        alignCenter = true,
-                    )
-                    if (uiState.revealed) {
                         RubyFieldText(
                             word = currentWord,
-                            field = sessionData.session.revealField,
-                            mainStyle = MaterialTheme.typography.titleLarge,
+                            field = sessionData.session.frontField,
+                            mainStyle = MaterialTheme.typography.headlineSmall,
                             rubyStyle = MaterialTheme.typography.labelMedium,
                             showRuby = showExamRuby,
                             alignCenter = true,
-                            rubyColor = Color(0xFFE5807A),
                         )
-                        Text(
-                            currentWord.meaningKo,
-                            style = MaterialTheme.typography.bodyLarge,
-                            textAlign = TextAlign.Center,
-                        )
-                    } else {
-                        Text(
-                            "카드를 터치해서 정답을 확인하세요.",
-                            style = MaterialTheme.typography.bodyMedium,
-                            textAlign = TextAlign.Center,
-                        )
+                        if (uiState.revealed) {
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(10.dp),
+                            ) {
+                                Text(
+                                    text = fieldLabel(sessionData.session.revealField),
+                                    style = MaterialTheme.typography.labelLarge,
+                                    color = InkMuted,
+                                )
+                                RubyFieldText(
+                                    word = currentWord,
+                                    field = sessionData.session.revealField,
+                                    mainStyle = MaterialTheme.typography.titleLarge,
+                                    rubyStyle = MaterialTheme.typography.labelMedium,
+                                    showRuby = sessionData.session.revealField == WordField.KANJI,
+                                    alignCenter = true,
+                                    rubyColor = Color(0xFFE5807A),
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -2072,139 +2049,53 @@ private fun AppSearchField(
 @Composable
 private fun SummaryCard(
     totalWords: Int,
-    recentSessionCount: Int,
-    globalStatsSummary: GlobalStatsSummary,
     onOpenAiDeck: () -> Unit,
     onOpenAllWords: () -> Unit,
     onOpenGlobalStats: () -> Unit,
 ) {
-    Card {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(
-                    brush = Brush.verticalGradient(
-                        colors = listOf(PrimaryBlueSoft, PaperElevated),
-                    ),
-                ),
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        FilledTonalIconButton(
+            onClick = onOpenGlobalStats,
+            modifier = Modifier.width(52.dp).height(52.dp),
         ) {
-            Column(
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                Text(
-                    "총 단어 ${totalWords}개",
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
-                Text(
-                    "최근 시험 ${recentSessionCount}회",
-                    color = InkSoft,
-                )
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { onOpenGlobalStats() },
-                    shape = RoundedCornerShape(18.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    border = BorderStroke(1.dp, DividerSoft),
-                ) {
-                    Column(
-                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        Text(
-                            "전체 시험 통계",
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.SemiBold,
-                        )
-                        FlowRow(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp),
-                        ) {
-                            StatsKeyChip("푼 문제", "${globalStatsSummary.totalQuestionCount}개")
-                            StatsKeyChip("푼 단어", "${globalStatsSummary.studiedWordCount}개")
-                            StatsKeyChip("정답률", "${globalStatsSummary.accuracyPercent}%")
-                        }
-                        Text(
-                            "기간별 그래프와 전체 단어 통계를 보려면 눌러 보세요.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = InkSoft,
-                        )
-                    }
-                }
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { onOpenAiDeck() },
-                    shape = RoundedCornerShape(18.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    border = BorderStroke(1.dp, DividerSoft),
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .width(44.dp)
-                                .height(44.dp)
-                                .clip(RoundedCornerShape(14.dp))
-                                .background(
-                                    Brush.linearGradient(
-                                        listOf(PrimaryBlueSoft, SecondaryCoralSoft),
-                                    ),
-                                ),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Text(
-                                text = "AI",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = PrimaryBlue,
-                            )
-                        }
-                        Column(
-                            modifier = Modifier.weight(1f),
-                            verticalArrangement = Arrangement.spacedBy(2.dp),
-                        ) {
-                            Text(
-                                text = "AI 시험 기능",
-                                style = MaterialTheme.typography.titleSmall,
-                                fontWeight = FontWeight.SemiBold,
-                            )
-                            Text(
-                                text = "자주 틀린 단어와 새 단어를 섞어 바로 시험해요.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = InkSoft,
-                            )
-                        }
-                        Icon(
-                            imageVector = Icons.Outlined.PlayArrow,
-                            contentDescription = null,
-                            tint = PrimaryBlue,
-                        )
-                    }
-                }
-                OutlinedButton(
-                    onClick = onOpenAllWords,
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
-                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 10.dp),
-                ) {
-                    Text("모든 단어 보기")
-                }
-            }
-            Box(
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .offset(x = (-18).dp, y = 18.dp)
-                    .width(72.dp)
-                    .clip(RoundedCornerShape(999.dp))
-                    .background(SecondaryCoralSoft),
+            Icon(
+                imageVector = Icons.Outlined.QueryStats,
+                contentDescription = "통계",
             )
+        }
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(2.dp),
+        ) {
+            Text(
+                text = "총 단어 ${totalWords}개",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+            )
+            Text(
+                text = "단어장 선택 후 바로 시험을 시작할 수 있어요.",
+                style = MaterialTheme.typography.bodySmall,
+                color = InkSoft,
+            )
+        }
+        OutlinedButton(
+            onClick = onOpenAllWords,
+            shape = RoundedCornerShape(12.dp),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 10.dp),
+        ) {
+            Text("모든 단어")
+        }
+        Button(
+            onClick = onOpenAiDeck,
+            shape = RoundedCornerShape(12.dp),
+            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 10.dp),
+        ) {
+            Text("AI 시험")
         }
     }
 }
@@ -2816,38 +2707,73 @@ private fun WordRow(
     val showOnlyMeaningKo = showMeaningKo && !showMeaningJa
     val showOnlyMeaningJa = showMeaningJa && !showMeaningKo
     val showBothMeanings = showMeaningKo && showMeaningJa
+    val partOfSpeechLabel = word.partOfSpeech.ifBlank { word.tag.ifBlank { "단어" } }
+    val partOfSpeechAccent = partOfSpeechColor(partOfSpeechLabel)
+    val kanjiLength = word.kanji.trim().length
     val leftColumnWeight = when {
         !hasMeaningColumn -> 1f
-        showOnlyMeaningJa -> 0.35f
-        showOnlyMeaningKo -> 0.40f
-        else -> 0.42f
+        showOnlyMeaningJa -> 0.44f
+        showOnlyMeaningKo -> 0.48f
+        else -> 0.52f
     }
     val rightColumnWeight = when {
         !hasMeaningColumn -> 0f
-        showOnlyMeaningJa -> 0.65f
-        showOnlyMeaningKo -> 0.60f
-        else -> 0.58f
+        showOnlyMeaningJa -> 0.56f
+        showOnlyMeaningKo -> 0.52f
+        else -> 0.48f
     }
     val kanjiMainStyle = when {
         !hasMeaningColumn -> MaterialTheme.typography.headlineMedium.copy(
             fontWeight = FontWeight.Bold,
-            fontSize = 32.sp,
-            lineHeight = 38.sp,
+            fontSize = when {
+                kanjiLength >= 18 -> 23.sp
+                kanjiLength >= 12 -> 26.sp
+                else -> 29.sp
+            },
+            lineHeight = when {
+                kanjiLength >= 18 -> 29.sp
+                kanjiLength >= 12 -> 32.sp
+                else -> 35.sp
+            },
         )
         showOnlyMeaningKo -> MaterialTheme.typography.headlineSmall.copy(
             fontWeight = FontWeight.Bold,
-            fontSize = 29.sp,
-            lineHeight = 34.sp,
+            fontSize = when {
+                kanjiLength >= 18 -> 21.sp
+                kanjiLength >= 12 -> 23.sp
+                else -> 25.sp
+            },
+            lineHeight = when {
+                kanjiLength >= 18 -> 27.sp
+                kanjiLength >= 12 -> 29.sp
+                else -> 31.sp
+            },
         )
         showOnlyMeaningJa -> MaterialTheme.typography.titleLarge.copy(
             fontWeight = FontWeight.Bold,
-            fontSize = 26.sp,
-            lineHeight = 31.sp,
+            fontSize = when {
+                kanjiLength >= 18 -> 20.sp
+                kanjiLength >= 12 -> 22.sp
+                else -> 24.sp
+            },
+            lineHeight = when {
+                kanjiLength >= 18 -> 26.sp
+                kanjiLength >= 12 -> 28.sp
+                else -> 30.sp
+            },
         )
         else -> MaterialTheme.typography.titleLarge.copy(
             fontWeight = FontWeight.Bold,
-            fontSize = 24.sp,
-            lineHeight = 29.sp,
+            fontSize = when {
+                kanjiLength >= 18 -> 18.sp
+                kanjiLength >= 12 -> 20.sp
+                else -> 22.sp
+            },
+            lineHeight = when {
+                kanjiLength >= 18 -> 24.sp
+                kanjiLength >= 12 -> 26.sp
+                else -> 28.sp
+            },
         )
     }
     val meaningKoStyle = when {
@@ -2905,16 +2831,11 @@ private fun WordRow(
         Row(
             modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            Spacer(
-                modifier = Modifier
-                    .width(4.dp)
-                    .clip(RoundedCornerShape(999.dp))
-                    .background(Brush.verticalGradient(listOf(PrimaryBlueSoft, SecondaryCoralSoft))),
-            )
             Row(
                 modifier = Modifier
-                    .fillMaxWidth()
+                    .weight(1f)
                     .height(IntrinsicSize.Min),
                 horizontalArrangement = Arrangement.spacedBy(16.dp),
                 verticalAlignment = if (showOnlyMeaningKo) Alignment.CenterVertically else Alignment.Top,
@@ -2925,13 +2846,6 @@ private fun WordRow(
                         .fillMaxHeight(),
                     verticalArrangement = if (!hasMeaningColumn) Arrangement.Center else Arrangement.spacedBy(4.dp),
                 ) {
-                    if (showPartOfSpeech) {
-                        Text(
-                            text = word.partOfSpeech.ifBlank { word.tag.ifBlank { "단어" } },
-                            style = MaterialTheme.typography.labelMedium,
-                            color = PrimaryBlue,
-                        )
-                    }
                     RubyFieldText(
                         word = word,
                         field = WordField.KANJI,
@@ -2977,6 +2891,37 @@ private fun WordRow(
                             )
                         }
                     }
+                }
+            }
+            if (showPartOfSpeech) {
+                Column(
+                    modifier = Modifier
+                        .width(28.dp)
+                        .fillMaxHeight()
+                        .clip(RoundedCornerShape(999.dp))
+                        .background(partOfSpeechAccent.copy(alpha = 0.14f))
+                        .padding(vertical = 8.dp, horizontal = 4.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center,
+                ) {
+                    Spacer(
+                        modifier = Modifier
+                            .width(4.dp)
+                            .height(26.dp)
+                            .clip(RoundedCornerShape(999.dp))
+                            .background(partOfSpeechAccent),
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        text = partOfSpeechVerticalLabel(partOfSpeechLabel),
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            fontSize = 10.sp,
+                            lineHeight = 10.sp,
+                            fontWeight = FontWeight.SemiBold,
+                        ),
+                        color = partOfSpeechAccent,
+                        textAlign = TextAlign.Center,
+                    )
                 }
             }
         }
@@ -3209,9 +3154,9 @@ private fun buildLinkedSegments(
         .flatMap { word ->
             buildList {
                 val kanji = word.kanji.trim()
-                val reading = word.readingJa.trim()
-                if (kanji.isNotBlank()) add(kanji to word)
-                if (reading.isNotBlank() && reading != kanji) add(reading to word)
+                if (kanji.isNotBlank() && !word.isKanaOnly) {
+                    add(kanji to word)
+                }
             }
         }
         .distinctBy { it.first to it.second.id }
@@ -3885,6 +3830,21 @@ private fun fieldLabel(field: WordField): String = when (field) {
     WordField.MEANING_KO -> "뜻(한국어)"
 }
 
+private fun partOfSpeechVerticalLabel(label: String): String =
+    label.filterNot(Char::isWhitespace).ifBlank { "단어" }.toCharArray().joinToString("\n") { it.toString() }
+
+private fun partOfSpeechColor(label: String): Color {
+    val normalized = label.lowercase()
+    return when {
+        normalized.contains("동사") -> ExamGreen
+        normalized.contains("형용사") -> SecondaryCoral
+        normalized.contains("명사") -> PrimaryBlue
+        normalized.contains("부사") -> Color(0xFF8F6BD9)
+        normalized.contains("조사") -> Color(0xFF3A8C79)
+        else -> PrimaryBlue
+    }
+}
+
 private fun displayField(word: WordEntity, field: WordField): String = when (field) {
     WordField.KANJI -> word.kanji
     WordField.READING_JA -> word.readingJa
@@ -3943,7 +3903,11 @@ private fun RubyFieldText(
 }
 
 private fun rubyTextFor(word: WordEntity, field: WordField): String? = when (field) {
-    WordField.KANJI -> word.readingJa.takeIf { it.isNotBlank() && word.kanji.any(Char::isKanji) }
+    WordField.KANJI -> word.readingJa.takeIf {
+        it.isNotBlank() &&
+            !word.isKanaOnly &&
+            word.kanji.any(Char::isKanji)
+    }
     WordField.READING_JA -> null
     WordField.READING_KO -> null
     WordField.MEANING_KO -> null

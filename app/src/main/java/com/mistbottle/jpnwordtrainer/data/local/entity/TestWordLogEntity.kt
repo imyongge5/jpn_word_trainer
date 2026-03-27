@@ -6,12 +6,12 @@ import androidx.room.Index
 import androidx.room.PrimaryKey
 
 @Entity(
-    tableName = "study_answers",
+    tableName = "test_word_log",
     foreignKeys = [
         ForeignKey(
-            entity = StudySessionEntity::class,
+            entity = TestEntity::class,
             parentColumns = ["id"],
-            childColumns = ["sessionId"],
+            childColumns = ["testId"],
             onDelete = ForeignKey.CASCADE,
         ),
         ForeignKey(
@@ -21,11 +21,15 @@ import androidx.room.PrimaryKey
             onDelete = ForeignKey.CASCADE,
         ),
     ],
-    indices = [Index("sessionId"), Index("wordId")],
+    indices = [
+        Index(value = ["testId", "sequenceIndex"]),
+        Index(value = ["wordId", "answeredAt"]),
+        Index(value = ["answeredAt"]),
+    ],
 )
-data class StudyAnswerEntity(
+data class TestWordLogEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
-    val sessionId: Long,
+    val testId: Long,
     val wordId: Long,
     val sequenceIndex: Int,
     val isCorrect: Boolean,

@@ -2,7 +2,7 @@ package com.mistbottle.jpnwordtrainer.data.model
 
 import java.time.LocalDate
 import com.mistbottle.jpnwordtrainer.data.local.entity.DeckEntity
-import com.mistbottle.jpnwordtrainer.data.local.entity.StudySessionEntity
+import com.mistbottle.jpnwordtrainer.data.local.entity.TestEntity
 import com.mistbottle.jpnwordtrainer.data.local.entity.WordEntity
 
 enum class DeckType {
@@ -37,9 +37,11 @@ enum class WordField {
     MEANING_KO,
 }
 
-enum class SessionStatus {
+enum class TestStatus {
     IN_PROGRESS,
     COMPLETED,
+    EXPIRED,
+    DELETED,
 }
 
 enum class StatsDatePreset(
@@ -92,21 +94,27 @@ data class ExamSettings(
 )
 
 data class ExamSessionData(
-    val session: StudySessionEntity,
+    val test: TestEntity,
     val words: List<WordEntity>,
     val answersCount: Int,
-)
+) {
+    val session: TestEntity
+        get() = test
+}
 
 data class InProgressExamData(
-    val sessionId: Long,
+    val testId: Long,
     val deckName: String,
     val answeredCount: Int,
     val totalCount: Int,
     val startedAt: Long,
-)
+) {
+    val sessionId: Long
+        get() = testId
+}
 
 data class SessionSummary(
-    val sessionId: Long,
+    val testId: Long,
     val deckName: String,
     val totalCount: Int,
     val answeredCount: Int,
@@ -115,7 +123,10 @@ data class SessionSummary(
     val accuracyPercent: Int,
     val recordedAt: Long,
     val isCompleted: Boolean,
-)
+) {
+    val sessionId: Long
+        get() = testId
+}
 
 data class WordAggregateStat(
     val word: WordEntity,
@@ -179,14 +190,20 @@ data class DeckStatsData(
 )
 
 data class DeckDateSessionSummary(
-    val sessionId: Long,
-    val completedAt: Long,
+    val testId: Long,
+    val endedAt: Long,
     val answeredCount: Int,
     val totalCount: Int,
     val correctCount: Int,
     val wrongCount: Int,
     val accuracyPercent: Int,
-)
+) {
+    val sessionId: Long
+        get() = testId
+
+    val completedAt: Long
+        get() = endedAt
+}
 
 data class DeckDateStatsData(
     val deckId: Long,
@@ -240,8 +257,6 @@ data class HomeData(
     val jlptDecks: List<DeckWithCount>,
     val customDecks: List<DeckWithCount>,
     val totalWordCount: Int,
-    val recentSessions: List<SessionSummary>,
-    val globalStatsSummary: GlobalStatsSummary,
 )
 
 data class DeckDetailData(

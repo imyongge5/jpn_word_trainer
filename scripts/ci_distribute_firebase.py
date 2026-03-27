@@ -48,6 +48,7 @@ def main() -> None:
     parser.add_argument("--credentials-path", default="")
     parser.add_argument("--credentials-file-name", default="firebase-service-account.json")
     parser.add_argument("--release-notes-file-name", default="release-notes.txt")
+    parser.add_argument("--release-notes-path", default="")
     parser.add_argument("--note-line", action="append", default=[])
     args = parser.parse_args()
 
@@ -117,13 +118,19 @@ def main() -> None:
         raise SystemExit(f"Credentials file does not exist at absolute path: {credentials_absolute}")
     log("Credentials file exists at the resolved absolute path.")
 
-    release_notes_path = (runner_temp / args.release_notes_file_name).resolve()
-    release_notes_lines = args.note_line or [f"Version: {args.version_tag}"]
-    log(f"Creating release notes file: {release_notes_path}")
-    release_notes_path.write_text("\n".join(release_notes_lines) + "\n", encoding="utf-8")
-    if not release_notes_path.exists():
-        raise SystemExit(f"Release notes file was not created: {release_notes_path}")
-    log("Release notes file creation confirmed.")
+    if args.release_notes_path:
+        release_notes_path = pathlib.Path(args.release_notes_path).resolve()
+        log(f"Using provided release notes file: {release_notes_path}")
+        if not release_notes_path.exists():
+            raise SystemExit(f"Provided release notes file does not exist: {release_notes_path}")
+    else:
+        release_notes_path = (runner_temp / args.release_notes_file_name).resolve()
+        release_notes_lines = args.note_line or [f"Version: {args.version_tag}"]
+        log(f"Creating release notes file: {release_notes_path}")
+        release_notes_path.write_text("\n".join(release_notes_lines) + "\n", encoding="utf-8")
+        if not release_notes_path.exists():
+            raise SystemExit(f"Release notes file was not created: {release_notes_path}")
+        log("Release notes file creation confirmed.")
 
     env = os.environ.copy()
     env["APP_VERSION_TAG"] = args.version_tag

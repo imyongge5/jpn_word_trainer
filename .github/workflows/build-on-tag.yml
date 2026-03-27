@@ -57,17 +57,26 @@ jobs:
       - name: 릴리즈 APK 빌드
         run: python scripts/ci_build_release.py --version-tag "${{ steps.version.outputs.version_tag }}"
 
+      - name: 패치노트 생성
+        id: notes
+        run: |
+          python scripts/ci_collect_patch_notes.py \
+            --version-tag "${{ steps.version.outputs.version_tag }}" \
+            --source-tag "${{ github.ref_name }}" \
+            --commit-sha "${{ github.sha }}" \
+            --output-path "build/ci/release-notes.txt"
+
       - name: 버전 태그 및 GitHub Release 발행
         run: |
           python scripts/ci_publish_release.py \
             --version-tag "${{ steps.version.outputs.version_tag }}" \
-            --apk-path "app/build/outputs/apk/release/app-release.apk"
+            --apk-path "app/build/outputs/apk/release/app-release.apk" \
+            --release-notes-file "${{ steps.notes.outputs.patch_notes_file }}" \
+            --additional-tag "${{ steps.notes.outputs.build_history_tag }}"
 
       - name: Firebase App Distribution 배포
         run: |
           python scripts/ci_distribute_firebase.py \
             --version-tag "${{ steps.version.outputs.version_tag }}" \
-            --note-line "Build tag: ${{ github.ref_name }}" \
-            --note-line "Version: ${{ steps.version.outputs.version_tag }}" \
-            --note-line "Commit: ${{ github.sha }}" \
+            --release-notes-path "${{ steps.notes.outputs.patch_notes_file }}" \
             --artifact-path "app/build/outputs/apk/release/app-release.apk"

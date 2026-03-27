@@ -27,6 +27,14 @@ def ensure_tag(root: pathlib.Path, tag_name: str, repository: str, token: str) -
     )
 
 
+def push_tag(root: pathlib.Path, tag_name: str, repository: str, token: str) -> None:
+    run(["git", "tag", "-f", tag_name], cwd=root)
+    run(
+        ["git", "push", "--force", f"https://x-access-token:{token}@github.com/{repository}.git", tag_name],
+        cwd=root,
+    )
+
+
 def get_or_create_release(repository: str, token: str, tag_name: str, body: str) -> dict:
     status, payload = github_api_request(
         "GET",
@@ -87,6 +95,8 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--version-tag", required=True)
     parser.add_argument("--apk-path", required=True)
+    parser.add_argument("--release-notes-file", default="")
+    parser.add_argument("--additional-tag", default="")
     args = parser.parse_args()
 
     root = repo_root()
@@ -100,14 +110,24 @@ def main() -> None:
         raise SystemExit(f"APK not found: {apk_path}")
 
     ensure_tag(root, args.version_tag, repository, token)
+    if args.additional_tag:
+        push_tag(root, args.additional_tag, repository, token)
 
-    body = "\n".join(
-        [
-            f"Version: {args.version_tag}",
-            f"Source tag: {source_tag}",
-            f"Commit: {commit_sha}",
-        ]
-    )
+    if args.release_notes_file:
+        notes_path = pathlib.Path(args.release_notes_file)
+        if not notes_path.is_absolute():
+            notes_path = (root / notes_path).resolve()
+        if not notes_path.exists():
+            raise SystemExit(f"Release notes file not found: {notes_path}")
+        body = notes_path.read_text(encoding="utf-8").strip()
+    else:
+        body = "\n".join(
+            [
+                f"Version: {args.version_tag}",
+                f"Source tag: {source_tag}",
+                f"Commit: {commit_sha}",
+            ]
+        )
     release = get_or_create_release(repository, token, args.version_tag, body)
     upload_asset(repository, token, release, apk_path)
     print(f"GitHub Release ready: {release['html_url']}")

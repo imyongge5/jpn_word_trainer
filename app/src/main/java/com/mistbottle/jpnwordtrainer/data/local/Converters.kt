@@ -2,7 +2,7 @@ package com.mistbottle.jpnwordtrainer.data.local
 
 import androidx.room.TypeConverter
 import com.mistbottle.jpnwordtrainer.data.model.DeckType
-import com.mistbottle.jpnwordtrainer.data.model.SessionStatus
+import com.mistbottle.jpnwordtrainer.data.model.TestStatus
 import com.mistbottle.jpnwordtrainer.data.model.WordField
 import com.mistbottle.jpnwordtrainer.data.model.WordOrder
 
@@ -26,8 +26,8 @@ class Converters {
     fun wordFieldToString(value: WordField): String = value.name
 
     @TypeConverter
-    fun sessionStatusFromString(value: String): SessionStatus = SessionStatus.valueOf(value)
+    fun testStatusFromString(value: String): TestStatus = TestStatus.valueOf(value)
 
     @TypeConverter
-    fun sessionStatusToString(value: SessionStatus): String = value.name
+    fun testStatusToString(value: TestStatus): String = value.name
 }

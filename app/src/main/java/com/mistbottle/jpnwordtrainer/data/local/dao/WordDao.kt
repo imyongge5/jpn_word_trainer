@@ -30,8 +30,8 @@ interface WordDao {
     @Query(
         """
         SELECT * FROM words
-        WHERE kanji LIKE '%' || :query || '%'
-           OR readingJa LIKE '%' || :query || '%'
+        WHERE (kanji = :query AND isKanaOnly = 0)
+           OR readingJa = :query
         ORDER BY LENGTH(kanji) DESC, LENGTH(readingJa) DESC, createdAt DESC
         """,
     )
