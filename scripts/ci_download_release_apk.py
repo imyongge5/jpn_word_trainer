@@ -3,7 +3,7 @@ from __future__ import annotations
 import argparse
 import pathlib
 
-from ci_common import ensure_parent, github_api_request, require_env
+from ci_common import ensure_parent, github_api_request, require_env, require_github_token
 
 
 def main() -> None:
@@ -13,7 +13,7 @@ def main() -> None:
     args = parser.parse_args()
 
     repository = require_env("GITHUB_REPOSITORY")
-    token = require_env("WORKFLOW_PUSH_TOKEN")
+    token = require_github_token()
     output_path = pathlib.Path(args.output_path)
     ensure_parent(output_path)
 

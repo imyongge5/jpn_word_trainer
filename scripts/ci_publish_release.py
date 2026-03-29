@@ -5,7 +5,7 @@ import json
 import pathlib
 import urllib.parse
 
-from ci_common import github_api_request, require_env, repo_root, run
+from ci_common import github_api_request, repo_root, require_env, require_github_token, run
 
 
 def ensure_tag(root: pathlib.Path, tag_name: str, repository: str, token: str) -> None:
@@ -100,7 +100,7 @@ def main() -> None:
     args = parser.parse_args()
 
     root = repo_root()
-    token = require_env("WORKFLOW_PUSH_TOKEN")
+    token = require_github_token()
     repository = require_env("GITHUB_REPOSITORY")
     source_tag = require_env("GITHUB_REF_NAME")
     commit_sha = require_env("GITHUB_SHA")

@@ -51,6 +51,14 @@ def require_env(name: str) -> str:
     return value
 
 
+def require_github_token() -> str:
+    for name in ("WORKFLOW_PUSH_TOKEN", "GITHUB_TOKEN"):
+        value = os.environ.get(name, "").strip()
+        if value:
+            return value
+    raise SystemExit("Required environment variable is missing: WORKFLOW_PUSH_TOKEN or GITHUB_TOKEN")
+
+
 def append_github_output(name: str, value: str) -> None:
     path = os.environ.get("GITHUB_OUTPUT")
     if not path:

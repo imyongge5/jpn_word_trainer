@@ -21,6 +21,7 @@ jobs:
     name: Firebase App Distribution 배포
     runs-on: ubuntu-latest
     env:
+      GITHUB_TOKEN: ${{ github.token }}
       FIREBASE_APP_DISTRIBUTION_GROUPS: ${{ secrets.FIREBASE_APP_DISTRIBUTION_GROUPS }}
       FIREBASE_APP_DISTRIBUTION_TESTERS: ${{ secrets.FIREBASE_APP_DISTRIBUTION_TESTERS }}
       FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}

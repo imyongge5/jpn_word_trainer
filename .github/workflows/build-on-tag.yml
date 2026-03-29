@@ -15,6 +15,7 @@ jobs:
     name: 빌드와 릴리즈 생성
     runs-on: ubuntu-latest
     env:
+      GITHUB_TOKEN: ${{ github.token }}
       WORKFLOW_PUSH_TOKEN: ${{ secrets.WORKFLOW_PUSH_TOKEN }}
 
     steps:
