@@ -18,3 +18,5 @@ scripts/local-ci.env
 release.keystore
 *.keystore
 *.jks
+backend/.env
+backend/data/

@@ -58,7 +58,6 @@ class WordbookRepository(
         deckDao.observeDecks(),
         studyDao.observeTestWordLogCount(),
     ) { decks, _ ->
-        expireStaleTests()
         HomeData(
             jlptDecks = decks.filter { it.type == DeckType.JLPT },
             customDecks = decks.filter { it.type == DeckType.CUSTOM },
@@ -460,6 +459,7 @@ class WordbookRepository(
         testId = result.testId,
         deckName = result.deckNameSnapshot,
         totalCount = result.totalWordCount,
+        // EndedTestResultEntity is only written after the exam is fully completed.
         answeredCount = result.totalWordCount,
         correctCount = result.correctCount,
         wrongCount = result.wrongCount,

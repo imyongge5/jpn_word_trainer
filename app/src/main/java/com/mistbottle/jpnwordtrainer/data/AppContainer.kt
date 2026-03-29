@@ -6,6 +6,7 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.mistbottle.jpnwordtrainer.data.local.WordbookDatabase
 import com.mistbottle.jpnwordtrainer.data.repository.WordbookRepository
+import com.mistbottle.jpnwordtrainer.data.repository.SyncRepository
 
 class AppContainer(context: Context) {
     private val database = Room.databaseBuilder(
@@ -17,9 +18,11 @@ class AppContainer(context: Context) {
         .addMigrations(MIGRATION_1_2)
         .addMigrations(MIGRATION_2_3)
         .addMigrations(MIGRATION_3_4)
+        .addMigrations(MIGRATION_4_5)
         .build()
 
     val repository: WordbookRepository = WordbookRepository(database = database)
+    val syncRepository: SyncRepository = SyncRepository(database = database)
 
     private companion object {
         val MIGRATION_1_2 = object : Migration(1, 2) {
@@ -184,6 +187,12 @@ class AppContainer(context: Context) {
                     WHERE completedAt IS NOT NULL
                     """.trimIndent(),
                 )
+            }
+        }
+
+        val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                // no-op: key-value app_settings 확장을 위한 버전 상승만 처리합니다.
             }
         }
     }

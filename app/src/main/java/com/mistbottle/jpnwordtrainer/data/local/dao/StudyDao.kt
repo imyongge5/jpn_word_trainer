@@ -15,10 +15,19 @@ interface StudyDao {
     suspend fun insertTest(test: TestEntity): Long
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertTests(tests: List<TestEntity>)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertTestWordLog(log: TestWordLogEntity): Long
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertTestWordLogs(logs: List<TestWordLogEntity>)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertEndedTestResult(result: EndedTestResultEntity): Long
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertEndedTestResults(results: List<EndedTestResultEntity>)
 
     @Query("SELECT * FROM tests WHERE id = :testId LIMIT 1")
     suspend fun getTestById(testId: Long): TestEntity?
@@ -49,6 +58,9 @@ interface StudyDao {
     @Query("SELECT * FROM test_word_log WHERE testId = :testId ORDER BY sequenceIndex ASC")
     suspend fun getLogsForTest(testId: Long): List<TestWordLogEntity>
 
+    @Query("SELECT * FROM test_word_log ORDER BY answeredAt DESC")
+    suspend fun getAllTestWordLogs(): List<TestWordLogEntity>
+
     @Query(
         """
         SELECT twl.* FROM test_word_log twl
@@ -64,6 +76,9 @@ interface StudyDao {
 
     @Query("SELECT * FROM tests ORDER BY changedAt DESC, startedAt DESC")
     suspend fun getAllTests(): List<TestEntity>
+
+    @Query("SELECT * FROM ended_test_result ORDER BY endedAt DESC")
+    suspend fun getAllEndedTestResults(): List<EndedTestResultEntity>
 
     @Query(
         """
@@ -141,4 +156,16 @@ interface StudyDao {
         expiresBefore: Long,
         changedAt: Long,
     )
+
+    @Query("SELECT COUNT(*) FROM tests WHERE status = 'IN_PROGRESS'")
+    suspend fun getInProgressTestCount(): Int
+
+    @Query("DELETE FROM ended_test_result")
+    suspend fun clearAllEndedTestResults()
+
+    @Query("DELETE FROM test_word_log")
+    suspend fun clearAllTestWordLogs()
+
+    @Query("DELETE FROM tests")
+    suspend fun clearAllTests()
 }

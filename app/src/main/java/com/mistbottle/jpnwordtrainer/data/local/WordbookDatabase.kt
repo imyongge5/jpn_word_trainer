@@ -25,7 +25,7 @@ import com.mistbottle.jpnwordtrainer.data.local.entity.WordEntity
         TestWordLogEntity::class,
         WordEntity::class,
     ],
-    version = 4,
+    version = 5,
     exportSchema = false,
 )
 @TypeConverters(Converters::class)

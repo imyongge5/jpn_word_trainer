@@ -18,6 +18,9 @@ interface DeckDao {
     suspend fun insertDeck(deck: DeckEntity): Long
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertDecks(decks: List<DeckEntity>): List<Long>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertDeckWordCrossRef(crossRef: DeckWordCrossRef)
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
@@ -100,4 +103,13 @@ interface DeckDao {
         """,
     )
     suspend fun getWordsForDeck(deckId: Long): List<WordEntity>
+
+    @Query("SELECT * FROM deck_word_cross_ref")
+    suspend fun getAllDeckWordCrossRefs(): List<DeckWordCrossRef>
+
+    @Query("DELETE FROM deck_word_cross_ref")
+    suspend fun clearAllDeckWordCrossRefs()
+
+    @Query("DELETE FROM decks")
+    suspend fun clearAllDecks()
 }
