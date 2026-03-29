@@ -13,6 +13,7 @@ import com.mistbottle.jpnwordtrainer.data.model.InProgressExamData
 import com.mistbottle.jpnwordtrainer.data.model.SessionSummary
 import com.mistbottle.jpnwordtrainer.data.model.SessionResult
 import com.mistbottle.jpnwordtrainer.data.model.StatsDatePreset
+import com.mistbottle.jpnwordtrainer.data.model.ThemePreset
 import com.mistbottle.jpnwordtrainer.data.model.WordDetailData
 import com.mistbottle.jpnwordtrainer.data.model.WordDraft
 
@@ -100,6 +101,18 @@ data class WordDetailUiState(
     val isLoading: Boolean = true,
     val detail: WordDetailData? = null,
     val saveToDeckSuccess: Boolean = false,
+)
+
+data class SettingsUiState(
+    val isLoading: Boolean = true,
+    val currentThemePreset: ThemePreset = ThemePreset.DEFAULT_LIGHT,
+    val serverUrl: String = "",
+    val username: String = "",
+    val password: String = "",
+    val isLoggedIn: Boolean = false,
+    val syncOnExamComplete: Boolean = false,
+    val isWorking: Boolean = false,
+    val message: String? = null,
 )
 
 data class AllWordsUiState(

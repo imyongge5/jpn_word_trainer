@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.update
@@ -17,6 +18,9 @@ import com.mistbottle.jpnwordtrainer.data.model.StatsDateRange
 import com.mistbottle.jpnwordtrainer.data.model.WordDraft
 import com.mistbottle.jpnwordtrainer.data.model.WordField
 import com.mistbottle.jpnwordtrainer.data.model.WordOrder
+import com.mistbottle.jpnwordtrainer.data.repository.AuthResult
+import com.mistbottle.jpnwordtrainer.data.repository.SyncRepository
+import com.mistbottle.jpnwordtrainer.data.repository.SyncResult
 import com.mistbottle.jpnwordtrainer.data.repository.WordbookRepository
 
 class HomeViewModel(
@@ -289,6 +293,7 @@ class ExamSetupViewModel(
 
 class ExamViewModel(
     private val repository: WordbookRepository,
+    private val syncRepository: SyncRepository,
     private val sessionId: Long,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(ExamUiState())
@@ -314,6 +319,8 @@ class ExamViewModel(
         )
         if (!finished) {
             refresh()
+        } else if (syncRepository.isSyncOnExamCompleteEnabled()) {
+            syncRepository.push()
         }
         return finished
     }
@@ -377,6 +384,121 @@ class DeckDateStatsViewModel(
                 isLoading = false,
                 stats = repository.getDeckDateStats(deckId, dateKey),
             )
+        }
+    }
+}
+
+class SettingsViewModel(
+    private val repository: WordbookRepository,
+    private val syncRepository: SyncRepository,
+) : ViewModel() {
+    private val _uiState = MutableStateFlow(SettingsUiState())
+    val uiState: StateFlow<SettingsUiState> = _uiState
+
+    init {
+        viewModelScope.launch {
+            combine(
+                repository.observeThemePreset(),
+                syncRepository.observeServerUrl(),
+                syncRepository.observeUsername(),
+                syncRepository.observeIsLoggedIn(),
+                syncRepository.observeSyncOnExamComplete(),
+            ) { themePreset, serverUrl, username, isLoggedIn, syncOnExamComplete ->
+                SettingsUiState(
+                    isLoading = false,
+                    currentThemePreset = themePreset,
+                    serverUrl = serverUrl,
+                    username = username,
+                    isLoggedIn = isLoggedIn,
+                    syncOnExamComplete = syncOnExamComplete,
+                    password = _uiState.value.password,
+                    isWorking = _uiState.value.isWorking,
+                    message = _uiState.value.message,
+                )
+            }.collectLatest { _uiState.value = it }
+        }
+    }
+
+    fun updateServerUrl(value: String) {
+        _uiState.update { it.copy(serverUrl = value, message = null) }
+    }
+
+    fun updateUsername(value: String) {
+        _uiState.update { it.copy(username = value, message = null) }
+    }
+
+    fun updatePassword(value: String) {
+        _uiState.update { it.copy(password = value, message = null) }
+    }
+
+    fun setSyncOnExamComplete(enabled: Boolean) {
+        viewModelScope.launch {
+            syncRepository.setSyncOnExamComplete(enabled)
+        }
+    }
+
+    fun saveServerUrl() {
+        viewModelScope.launch {
+            syncRepository.saveServerUrl(_uiState.value.serverUrl)
+            _uiState.update { it.copy(message = "서버 주소를 저장했어요.") }
+        }
+    }
+
+    fun login() {
+        val state = _uiState.value
+        if (state.serverUrl.isBlank() || state.username.isBlank() || state.password.isBlank()) {
+            _uiState.update { it.copy(message = "서버 주소, 아이디, 비밀번호를 모두 입력해 주세요.") }
+            return
+        }
+        viewModelScope.launch {
+            _uiState.update { it.copy(isWorking = true, message = null) }
+            when (val result = syncRepository.login(state.serverUrl, state.username, state.password)) {
+                is AuthResult.Success -> _uiState.update {
+                    it.copy(isWorking = false, password = "", message = "${result.username} 계정으로 로그인했어요.")
+                }
+                is AuthResult.Error -> _uiState.update {
+                    it.copy(isWorking = false, message = result.message)
+                }
+            }
+        }
+    }
+
+    fun register() {
+        val state = _uiState.value
+        if (state.serverUrl.isBlank() || state.username.isBlank() || state.password.isBlank()) {
+            _uiState.update { it.copy(message = "서버 주소, 아이디, 비밀번호를 모두 입력해 주세요.") }
+            return
+        }
+        viewModelScope.launch {
+            _uiState.update { it.copy(isWorking = true, message = null) }
+            when (val result = syncRepository.register(state.serverUrl, state.username, state.password)) {
+                is AuthResult.Success -> _uiState.update {
+                    it.copy(isWorking = false, password = "", message = "${result.username} 계정을 만들고 로그인했어요.")
+                }
+                is AuthResult.Error -> _uiState.update {
+                    it.copy(isWorking = false, message = result.message)
+                }
+            }
+        }
+    }
+
+    fun logout() {
+        viewModelScope.launch {
+            syncRepository.logout()
+            _uiState.update { it.copy(password = "", message = "로그아웃했어요.") }
+        }
+    }
+
+    fun manualSync() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isWorking = true, message = null) }
+            when (val result = syncRepository.syncAll()) {
+                SyncResult.Success -> _uiState.update { it.copy(isWorking = false, message = "동기화가 완료됐어요.") }
+                is SyncResult.Error -> _uiState.update { it.copy(isWorking = false, message = result.message) }
+                SyncResult.NotConfigured -> _uiState.update {
+                    it.copy(isWorking = false, message = "서버 주소와 로그인 정보를 먼저 설정해 주세요.")
+                }
+            }
         }
     }
 }

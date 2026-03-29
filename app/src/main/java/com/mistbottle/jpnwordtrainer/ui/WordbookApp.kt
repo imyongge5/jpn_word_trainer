@@ -7,6 +7,7 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Spacer
@@ -74,6 +75,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Brush
@@ -113,6 +115,7 @@ import com.mistbottle.jpnwordtrainer.data.model.StatsDatePreset
 import com.mistbottle.jpnwordtrainer.data.model.ThemePreset
 import com.mistbottle.jpnwordtrainer.data.model.WordField
 import com.mistbottle.jpnwordtrainer.data.model.WordOrder
+import com.mistbottle.jpnwordtrainer.data.repository.SyncRepository
 import com.mistbottle.jpnwordtrainer.data.repository.WordbookRepository
 import com.mistbottle.jpnwordtrainer.ui.ExamWordCountOption
 import com.mistbottle.jpnwordtrainer.ui.theme.DividerSoft
@@ -131,6 +134,7 @@ import com.mistbottle.jpnwordtrainer.ui.theme.themePaletteForPreset
 @Composable
 fun WordbookApp(
     repository: WordbookRepository,
+    syncRepository: SyncRepository,
     currentThemePreset: ThemePreset,
     onPreviewTheme: (ThemePreset) -> Unit,
     onCancelThemePreview: () -> Unit,
@@ -158,10 +162,6 @@ fun WordbookApp(
                 )
                 HomeRoute(
                     viewModel = viewModel,
-                    currentThemePreset = currentThemePreset,
-                    onPreviewTheme = onPreviewTheme,
-                    onCancelThemePreview = onCancelThemePreview,
-                    onApplyTheme = onApplyTheme,
                     onOpenDeck = { deckId -> navController.navigate("deck/$deckId") },
                     onOpenDeckStats = { deckId -> navController.navigate("deck_stats/$deckId") },
                     onStartDeckExam = { deckId -> navController.navigate("exam_setup?deckId=$deckId") },
@@ -169,6 +169,21 @@ fun WordbookApp(
                     onDeckCreated = { deckId -> navController.navigate("deck/$deckId") },
                     onOpenAllWords = { navController.navigate("all_words") },
                     onOpenGlobalStats = { navController.navigate("global_stats") },
+                    onOpenSettings = { navController.navigate("settings") },
+                )
+            }
+            composable("settings") {
+                val viewModel: SettingsViewModel = viewModel(
+                    factory = WordbookViewModelFactory { SettingsViewModel(repository, syncRepository) },
+                )
+                SettingsRoute(
+                    viewModel = viewModel,
+                    onBack = {
+                        onCancelThemePreview()
+                        navController.popBackStack()
+                    },
+                    onPreviewTheme = onPreviewTheme,
+                    onApplyTheme = onApplyTheme,
                 )
             }
             composable("global_stats") {
@@ -333,7 +348,7 @@ fun WordbookApp(
                 val sessionId = backStackEntry.arguments?.getLong("sessionId") ?: return@composable
                 val viewModel: ExamViewModel = viewModel(
                     key = "exam-$sessionId",
-                    factory = WordbookViewModelFactory { ExamViewModel(repository, sessionId) },
+                    factory = WordbookViewModelFactory { ExamViewModel(repository, syncRepository, sessionId) },
                 )
                 ExamRoute(
                     viewModel = viewModel,
@@ -370,10 +385,6 @@ fun WordbookApp(
 @Composable
 private fun HomeRoute(
     viewModel: HomeViewModel,
-    currentThemePreset: ThemePreset,
-    onPreviewTheme: (ThemePreset) -> Unit,
-    onCancelThemePreview: () -> Unit,
-    onApplyTheme: (ThemePreset) -> Unit,
     onOpenDeck: (Long) -> Unit,
     onOpenDeckStats: (Long) -> Unit,
     onStartDeckExam: (Long) -> Unit,
@@ -381,12 +392,11 @@ private fun HomeRoute(
     onDeckCreated: (Long) -> Unit,
     onOpenAllWords: () -> Unit,
     onOpenGlobalStats: () -> Unit,
+    onOpenSettings: () -> Unit,
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var showDialog by remember { mutableStateOf(false) }
-    var showSettingsDialog by remember { mutableStateOf(false) }
     var deckName by remember { mutableStateOf("") }
-    var pendingThemePreset by remember(currentThemePreset, showSettingsDialog) { mutableStateOf(currentThemePreset) }
     val scope = rememberCoroutineScope()
 
     if (showDialog) {
@@ -427,33 +437,11 @@ private fun HomeRoute(
         )
     }
 
-    if (showSettingsDialog) {
-        ThemeSettingsDialog(
-            selectedPreset = pendingThemePreset,
-            onPresetChange = {
-                pendingThemePreset = it
-                onPreviewTheme(it)
-            },
-            onDismiss = {
-                showSettingsDialog = false
-                pendingThemePreset = currentThemePreset
-                onCancelThemePreview()
-            },
-            onConfirm = {
-                showSettingsDialog = false
-                onApplyTheme(pendingThemePreset)
-            },
-        )
-    }
-
     ScreenContainer(
         title = "일본어 단어장",
         actions = {
             AppHeaderIconButton(
-                onClick = {
-                    pendingThemePreset = currentThemePreset
-                    showSettingsDialog = true
-                },
+                onClick = onOpenSettings,
             ) {
                 Icon(
                     imageVector = Icons.Outlined.Settings,
@@ -532,60 +520,6 @@ private fun HomeRoute(
             }
         }
     }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun ThemeSettingsDialog(
-    selectedPreset: ThemePreset,
-    onPresetChange: (ThemePreset) -> Unit,
-    onDismiss: () -> Unit,
-    onConfirm: () -> Unit,
-) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("설정") },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                Text(
-                    text = "테마",
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.SemiBold,
-                )
-                ThemePresetDropdown(
-                    selectedPreset = selectedPreset,
-                    onPresetChange = onPresetChange,
-                )
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(
-                        text = "사용 색상",
-                        style = MaterialTheme.typography.labelLarge,
-                        color = InkMuted,
-                    )
-                    ThemeSwatchRow(
-                        colors = themePaletteForPreset(selectedPreset).swatches,
-                        squareSize = 20.dp,
-                    )
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(
-                onClick = onConfirm,
-                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
-            ) {
-                Text("적용")
-            }
-        },
-        dismissButton = {
-            TextButton(
-                onClick = onDismiss,
-                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
-            ) {
-                Text("취소")
-            }
-        },
-    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -1616,6 +1550,159 @@ private fun ResultRoute(
 }
 
 @Composable
+private fun SettingsRoute(
+    viewModel: SettingsViewModel,
+    onBack: () -> Unit,
+    onPreviewTheme: (ThemePreset) -> Unit,
+    onApplyTheme: (ThemePreset) -> Unit,
+) {
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+
+    ScreenContainer(
+        title = "설정",
+        onBack = onBack,
+    ) {
+        if (uiState.isLoading) {
+            LoadingView()
+            return@ScreenContainer
+        }
+
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            item {
+                SurfaceSectionCard(title = "테마") {
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        ThemePresetDropdown(
+                            selectedPreset = uiState.currentThemePreset,
+                            onPresetChange = {
+                                onPreviewTheme(it)
+                                onApplyTheme(it)
+                            },
+                        )
+                        ThemeSwatchRow(
+                            colors = themePaletteForPreset(uiState.currentThemePreset).swatches,
+                            squareSize = 18.dp,
+                        )
+                    }
+                }
+            }
+            item {
+                SurfaceSectionCard(title = "서버 연결") {
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        AppSearchField(
+                            value = uiState.serverUrl,
+                            onValueChange = viewModel::updateServerUrl,
+                            label = "서버 URL",
+                            placeholder = "http://192.168.0.10:8000",
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                        OutlinedTextField(
+                            value = uiState.username,
+                            onValueChange = viewModel::updateUsername,
+                            label = { Text("아이디") },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedContainerColor = MaterialTheme.colorScheme.surface,
+                                unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                            ),
+                        )
+                        OutlinedTextField(
+                            value = uiState.password,
+                            onValueChange = viewModel::updatePassword,
+                            label = { Text("비밀번호") },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                            visualTransformation = PasswordVisualTransformation(),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedContainerColor = MaterialTheme.colorScheme.surface,
+                                unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                            ),
+                        )
+                        Text(
+                            text = if (uiState.isLoggedIn) "로그인됨: ${uiState.username}" else "로그인되지 않음",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = InkSoft,
+                        )
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            AppSecondaryButton(
+                                text = "주소 저장",
+                                onClick = viewModel::saveServerUrl,
+                                enabled = !uiState.isWorking,
+                            )
+                            AppPrimaryButton(
+                                text = "로그인",
+                                onClick = viewModel::login,
+                                enabled = !uiState.isWorking,
+                            )
+                            AppSecondaryButton(
+                                text = "회원가입",
+                                onClick = viewModel::register,
+                                enabled = !uiState.isWorking,
+                            )
+                        }
+                        if (uiState.isLoggedIn) {
+                            AppSecondaryButton(
+                                text = "로그아웃",
+                                onClick = viewModel::logout,
+                                enabled = !uiState.isWorking,
+                            )
+                        }
+                    }
+                }
+            }
+            item {
+                SurfaceSectionCard(title = "동기화") {
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Column(
+                                modifier = Modifier.weight(1f),
+                                verticalArrangement = Arrangement.spacedBy(4.dp),
+                            ) {
+                                Text(
+                                    text = "시험 완료 시 자동 동기화",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.SemiBold,
+                                )
+                                Text(
+                                    text = "시험이 끝난 뒤 결과를 서버로 바로 올립니다.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = InkSoft,
+                                )
+                            }
+                            Checkbox(
+                                checked = uiState.syncOnExamComplete,
+                                onCheckedChange = viewModel::setSyncOnExamComplete,
+                            )
+                        }
+                        AppPrimaryButton(
+                            text = if (uiState.isWorking) "동기화 중..." else "지금 동기화",
+                            onClick = viewModel::manualSync,
+                            enabled = !uiState.isWorking,
+                        )
+                    }
+                }
+            }
+            uiState.message?.takeIf { it.isNotBlank() }?.let { message ->
+                item {
+                    Text(
+                        text = message,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
 private fun ScreenContainer(
     title: String,
     onBack: (() -> Unit)? = null,
@@ -2097,6 +2184,34 @@ private fun SummaryCard(
         ) {
             Text("AI 시험")
         }
+    }
+}
+
+@Composable
+private fun SurfaceSectionCard(
+    title: String,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    Card(
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface,
+        ),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+            content = {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                content()
+            },
+        )
     }
 }
 

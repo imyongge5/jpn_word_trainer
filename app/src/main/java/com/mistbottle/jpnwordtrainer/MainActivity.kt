@@ -22,7 +22,9 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
-        val repository = (application as WordbookApplication).container.repository
+        val container = (application as WordbookApplication).container
+        val repository = container.repository
+        val syncRepository = container.syncRepository
         setContent {
             val savedThemePreset by repository.observeThemePreset()
                 .collectAsStateWithLifecycle(initialValue = ThemePreset.DEFAULT_LIGHT)
@@ -32,6 +34,7 @@ class MainActivity : ComponentActivity() {
             WordbookAppTheme(themePreset = previewThemePreset ?: savedThemePreset) {
                 WordbookApp(
                     repository = repository,
+                    syncRepository = syncRepository,
                     currentThemePreset = savedThemePreset,
                     onPreviewTheme = { previewThemePreset = it },
                     onCancelThemePreview = { previewThemePreset = null },
