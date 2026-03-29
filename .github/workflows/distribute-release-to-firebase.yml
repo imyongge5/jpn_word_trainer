@@ -1,8 +1,11 @@
 name: 릴리즈를 Firebase에 배포
 
-run-name: Firebase 배포 · ${{ inputs.release_tag }}
+run-name: Firebase 배포
 
 on:
+  release:
+    types:
+      - published
   workflow_dispatch:
     inputs:
       release_tag:
@@ -21,8 +24,6 @@ jobs:
       FIREBASE_APP_DISTRIBUTION_GROUPS: ${{ secrets.FIREBASE_APP_DISTRIBUTION_GROUPS }}
       FIREBASE_APP_DISTRIBUTION_TESTERS: ${{ secrets.FIREBASE_APP_DISTRIBUTION_TESTERS }}
       FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
-      WORKFLOW_PUSH_TOKEN: ${{ secrets.WORKFLOW_PUSH_TOKEN }}
-      RELEASE_TAG: ${{ inputs.release_tag }}
 
     steps:
       - name: 코드 체크아웃
@@ -53,17 +54,26 @@ jobs:
       - name: Gradle 실행 권한 부여
         run: chmod +x ./gradlew
 
+      - name: 릴리즈 태그 결정
+        id: release_tag
+        run: |
+          if [ "${{ github.event_name }}" = "release" ]; then
+            echo "release_tag=${{ github.event.release.tag_name }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "release_tag=${{ inputs.release_tag }}" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: 릴리즈 APK 다운로드
         run: |
           python scripts/ci_download_release_apk.py \
-            --release-tag "${{ inputs.release_tag }}" \
+            --release-tag "${{ steps.release_tag.outputs.release_tag }}" \
             --output-path "app/build/outputs/apk/release/app-release.apk"
 
       - name: Firebase App Distribution 배포
         run: |
           python scripts/ci_distribute_firebase.py \
-            --version-tag "${{ inputs.release_tag }}" \
-            --note-line "Release tag: ${{ inputs.release_tag }}" \
+            --version-tag "${{ steps.release_tag.outputs.release_tag }}" \
+            --note-line "Release tag: ${{ steps.release_tag.outputs.release_tag }}" \
             --note-line "Triggered by: ${{ github.event_name }}" \
             --note-line "Repository: ${{ github.repository }}" \
             --artifact-path "app/build/outputs/apk/release/app-release.apk"

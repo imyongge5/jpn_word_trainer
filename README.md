@@ -43,6 +43,8 @@
 - `Jetpack Compose`
 - `Navigation Compose`
 - `Room`
+- `FastAPI`
+- `SQLite`
 - `Material 3`
 - `Android Splash Screen`
 
@@ -97,6 +99,40 @@ powershell -ExecutionPolicy Bypass -File .\scripts\build-test.ps1 -PreferEmulato
 
 앱은 첫 실행 때 JSON을 직접 파싱하지 않고, 빌드 시 생성된 SQLite 파일을 그대로 사용합니다.
 
+## 백엔드와 동기화
+
+v0.2부터는 로컬 Room DB를 유지하면서, 선택적으로 FastAPI 서버와 스냅샷 동기화를 할 수 있습니다.
+
+- 서버 URL, 아이디, 비밀번호는 앱의 설정 화면에서 직접 입력합니다.
+- 서버 주소나 개인 네트워크 정보는 소스코드에 하드코딩하지 않습니다.
+- 동기화는 `수동 동기화`와 `시험 완료 시 자동 동기화` 중에서 선택할 수 있습니다.
+- 서버 쪽은 `backend/` 아래의 FastAPI + Docker 구성으로 제공됩니다.
+
+### 백엔드 빠른 실행
+
+먼저 한 번만 가상환경을 만들고 의존성을 설치합니다.
+
+```powershell
+python -m venv venv
+.\venv\Scripts\python -m pip install -r .\backend\requirements.txt
+```
+
+그 다음 로컬 실행:
+
+```powershell
+Set-Location .\backend
+..\venv\Scripts\python -m uvicorn main:app --host 127.0.0.1 --port 8000
+```
+
+또는 Docker 실행:
+
+```powershell
+Set-Location .\backend
+docker compose up --build
+```
+
+에뮬레이터에서는 서버 주소를 `http://10.0.2.2:8000` 으로 넣으면 됩니다.
+
 ## 프로젝트 구조
 
 ```text
@@ -121,10 +157,12 @@ data
 
 - 기본 DB는 빌드 전에 생성됩니다.
 - 시험 답안은 각 문항마다 즉시 저장되고, 미완료 시험은 이어서 진행할 수 있습니다.
+- 서버 동기화는 현재 로컬 스냅샷 전체를 기준으로 동작합니다.
+- 진행 중인 시험이 있으면 서버 데이터를 내려받는 pull 동기화는 막습니다.
 - 공개 저장소에는 원본 PDF/XLSX 같은 수집 자료를 직접 커밋하지 않도록 `data/sources/`를 분리해 두었습니다.
 - 브랜치/릴리즈 운영 규칙은 `docs/RELEASE_WORKFLOW.md`에 정리되어 있습니다.
 - `build` 태그를 옮겨 붙이면 해당 커밋 기준으로 릴리즈 APK 빌드가 실행됩니다.
 - `build` 빌드가 성공하면 `vA.B.CCC` 버전 태그와 GitHub Release가 생성됩니다.
-- 생성된 GitHub Release는 별도 워크플로우에서 Firebase App Distribution으로 배포됩니다.
+- 생성된 GitHub Release는 `published` 이벤트를 통해 별도 워크플로우에서 Firebase App Distribution으로 배포됩니다.
 - 필요하면 `릴리즈를 Firebase에 배포` 워크플로우를 수동 실행해서 특정 릴리즈 태그만 다시 Firebase로 보낼 수 있습니다.
 - GitHub Actions에서 버전 태그를 생성하려면 `WORKFLOW_PUSH_TOKEN` secret 이 필요합니다.

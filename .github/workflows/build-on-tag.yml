@@ -11,13 +11,10 @@ permissions:
   contents: write
 
 jobs:
-  build-release-and-distribute:
-    name: 빌드 태그 스크립트 실행
+  build-and-release:
+    name: 빌드와 릴리즈 생성
     runs-on: ubuntu-latest
     env:
-      FIREBASE_APP_DISTRIBUTION_GROUPS: ${{ secrets.FIREBASE_APP_DISTRIBUTION_GROUPS }}
-      FIREBASE_APP_DISTRIBUTION_TESTERS: ${{ secrets.FIREBASE_APP_DISTRIBUTION_TESTERS }}
-      FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
       WORKFLOW_PUSH_TOKEN: ${{ secrets.WORKFLOW_PUSH_TOKEN }}
 
     steps:
@@ -73,10 +70,3 @@ jobs:
             --apk-path "app/build/outputs/apk/release/app-release.apk" \
             --release-notes-file "${{ steps.notes.outputs.patch_notes_file }}" \
             --additional-tag "${{ steps.notes.outputs.build_history_tag }}"
-
-      - name: Firebase App Distribution 배포
-        run: |
-          python scripts/ci_distribute_firebase.py \
-            --version-tag "${{ steps.version.outputs.version_tag }}" \
-            --release-notes-path "${{ steps.notes.outputs.patch_notes_file }}" \
-            --artifact-path "app/build/outputs/apk/release/app-release.apk"

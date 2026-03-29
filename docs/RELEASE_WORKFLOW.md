@@ -36,7 +36,7 @@
 - 의미
   - `A`: 정식 세대 번호
   - `B`: 베타 라인 번호
-  - `CCC`: 같은 베타 라인에서 푸시할 때마다 1씩 증가하는 번호
+- `CCC`: 같은 베타 라인에서 푸시할 때마다 1씩 증가하는 번호
 - 예시
   - `v0.1.22`
   - `v1.3.4`
@@ -58,6 +58,7 @@
 - `version-series.properties`에는 `A`, `B`만 저장한다.
 - 새 베타 라인을 시작할 때는 `VERSION_B`를 수동으로 올린다.
 - 새 정식 세대를 시작할 때는 `VERSION_A`를 올리고 `VERSION_B`를 원하는 시작값으로 정리한다.
+- `CCC`는 `build` 태그로 빌드할 때, 현재 브랜치 히스토리 기준으로 자동 계산된다.
 
 ### 빌드 태그 규칙
 
@@ -92,17 +93,16 @@ git push origin -f build
 
 ## 태그 운영 규칙
 
-- 정식 릴리즈 태그
-  - `v1.2.0`
+- 버전 태그
+  - `vA.B.CCC`
 - 빌드 트리거 태그
   - `build`
 
-태그 기반 자동화가 추가되면:
+태그 기반 자동화는:
 
-- `build` 태그는 선택적 릴리즈 APK 빌드 실행에 사용
-- 성공한 `build` 실행은 `vA.B.CCC` 버전 태그와 GitHub Release를 남긴다
-- 생성된 GitHub Release 는 별도 워크플로우에서 Firebase 로 배포된다
-- `main`의 태그는 정식 릴리즈 기준으로 사용
+- `build` 태그를 원하는 커밋으로 옮겨 붙여 빌드를 시작하고
+- 성공한 실행만 `vA.B.CCC` 버전 태그와 GitHub Release를 남기고
+- 생성된 GitHub Release 는 별도 워크플로우에서 Firebase 로 배포한다.
 
 ### GitHub Secret
 
