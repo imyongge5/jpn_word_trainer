@@ -20,6 +20,7 @@ class AppContainer(context: Context) {
         .addMigrations(MIGRATION_3_4)
         .addMigrations(MIGRATION_4_5)
         .addMigrations(MIGRATION_5_6)
+        .addMigrations(MIGRATION_6_7)
         .build()
 
     val repository: WordbookRepository = WordbookRepository(database = database)
@@ -200,6 +201,73 @@ class AppContainer(context: Context) {
         val MIGRATION_5_6 = object : Migration(5, 6) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE tests ADD COLUMN onlyUnseenWords INTEGER NOT NULL DEFAULT 0")
+            }
+        }
+
+        val MIGRATION_6_7 = object : Migration(6, 7) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                val now = System.currentTimeMillis()
+                db.execSQL("ALTER TABLE decks ADD COLUMN stableKey TEXT")
+                db.execSQL("ALTER TABLE decks ADD COLUMN deckVersionCode INTEGER")
+                db.execSQL("ALTER TABLE decks ADD COLUMN isBuiltin INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("UPDATE decks SET stableKey = sourceTag, deckVersionCode = 1, isBuiltin = 1 WHERE type = 'JLPT'")
+
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS deck_install_state (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        deckId INTEGER NOT NULL,
+                        stableKey TEXT NOT NULL,
+                        currentVersionCode INTEGER NOT NULL,
+                        latestKnownVersionCode INTEGER NOT NULL,
+                        updateAvailable INTEGER NOT NULL,
+                        isLegacyVersion INTEGER NOT NULL,
+                        lastCheckedAt INTEGER NOT NULL
+                    )
+                    """.trimIndent(),
+                )
+                db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_deck_install_state_deckId ON deck_install_state(deckId)")
+                db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_deck_install_state_stableKey ON deck_install_state(stableKey)")
+                db.execSQL(
+                    """
+                    INSERT INTO deck_install_state (
+                        deckId, stableKey, currentVersionCode, latestKnownVersionCode,
+                        updateAvailable, isLegacyVersion, lastCheckedAt
+                    )
+                    SELECT id, stableKey, 1, 1, 0, 1, $now
+                    FROM decks
+                    WHERE isBuiltin = 1 AND stableKey IS NOT NULL
+                    """.trimIndent(),
+                )
+
+                db.execSQL("ALTER TABLE tests ADD COLUMN sourceDeckStableKey TEXT")
+                db.execSQL("ALTER TABLE tests ADD COLUMN sourceDeckVersionCode INTEGER")
+                db.execSQL(
+                    """
+                    UPDATE tests
+                    SET sourceDeckStableKey = (
+                        SELECT stableKey FROM decks WHERE decks.id = tests.deckId
+                    ),
+                    sourceDeckVersionCode = (
+                        SELECT deckVersionCode FROM decks WHERE decks.id = tests.deckId
+                    )
+                    WHERE deckId IS NOT NULL
+                    """.trimIndent(),
+                )
+
+                db.execSQL("ALTER TABLE ended_test_result ADD COLUMN sourceDeckStableKey TEXT")
+                db.execSQL("ALTER TABLE ended_test_result ADD COLUMN sourceDeckVersionCode INTEGER")
+                db.execSQL(
+                    """
+                    UPDATE ended_test_result
+                    SET sourceDeckStableKey = (
+                        SELECT sourceDeckStableKey FROM tests WHERE tests.id = ended_test_result.testId
+                    ),
+                    sourceDeckVersionCode = (
+                        SELECT sourceDeckVersionCode FROM tests WHERE tests.id = ended_test_result.testId
+                    )
+                    """.trimIndent(),
+                )
             }
         }
     }

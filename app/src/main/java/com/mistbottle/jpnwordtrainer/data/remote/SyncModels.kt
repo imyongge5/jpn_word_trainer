@@ -36,8 +36,21 @@ data class DeckSyncDto(
     val description: String,
     val type: String,
     @Json(name = "source_tag") val sourceTag: String,
+    @Json(name = "stable_key") val stableKey: String? = null,
+    @Json(name = "deck_version_code") val deckVersionCode: Int? = null,
+    @Json(name = "is_builtin") val isBuiltin: Boolean? = null,
     @Json(name = "display_order") val displayOrder: Int,
     @Json(name = "created_at") val createdAt: Long,
+)
+
+data class DeckInstallStateSyncDto(
+    @Json(name = "deck_id") val deckId: Long,
+    @Json(name = "stable_key") val stableKey: String,
+    @Json(name = "current_version_code") val currentVersionCode: Int,
+    @Json(name = "latest_known_version_code") val latestKnownVersionCode: Int,
+    @Json(name = "update_available") val updateAvailable: Boolean,
+    @Json(name = "is_legacy_version") val isLegacyVersion: Boolean,
+    @Json(name = "last_checked_at") val lastCheckedAt: Long,
 )
 
 data class DeckWordRefSyncDto(
@@ -52,6 +65,8 @@ data class TestSyncDto(
     val status: String,
     @Json(name = "deck_id") val deckId: Long?,
     @Json(name = "deck_name_snapshot") val deckNameSnapshot: String,
+    @Json(name = "source_deck_stable_key") val sourceDeckStableKey: String? = null,
+    @Json(name = "source_deck_version_code") val sourceDeckVersionCode: Int? = null,
     @Json(name = "is_ai_deck") val isAiDeck: Boolean,
     @Json(name = "only_unseen_words") val onlyUnseenWords: Boolean = false,
     @Json(name = "word_order") val wordOrder: String,
@@ -77,6 +92,8 @@ data class EndedTestResultSyncDto(
     @Json(name = "test_id") val testId: Long,
     @Json(name = "deck_id") val deckId: Long?,
     @Json(name = "deck_name_snapshot") val deckNameSnapshot: String,
+    @Json(name = "source_deck_stable_key") val sourceDeckStableKey: String? = null,
+    @Json(name = "source_deck_version_code") val sourceDeckVersionCode: Int? = null,
     @Json(name = "is_ai_deck") val isAiDeck: Boolean,
     @Json(name = "total_word_count") val totalWordCount: Int,
     @Json(name = "correct_count") val correctCount: Int,
@@ -87,12 +104,33 @@ data class EndedTestResultSyncDto(
     @Json(name = "duration_seconds") val durationSeconds: Long,
 )
 
+data class BuiltinWordMappingDto(
+    @Json(name = "old_word_id") val oldWordId: Long,
+    @Json(name = "new_word_id") val newWordId: Long?,
+    @Json(name = "mapping_type") val mappingType: String,
+)
+
+data class BuiltinDeckUpdatePackageDto(
+    @Json(name = "stable_key") val stableKey: String,
+    val name: String,
+    @Json(name = "current_version_code") val currentVersionCode: Int,
+    @Json(name = "target_version_code") val targetVersionCode: Int,
+    @Json(name = "target_version_label") val targetVersionLabel: String,
+    val changelog: String,
+    @Json(name = "update_available") val updateAvailable: Boolean,
+    val words: List<WordSyncDto>,
+    @Json(name = "deck_word_refs") val deckWordRefs: List<DeckWordRefSyncDto>,
+    val mappings: List<BuiltinWordMappingDto>,
+)
+
 data class SyncPayloadDto(
     val words: List<WordSyncDto>,
     val decks: List<DeckSyncDto>,
+    @Json(name = "deck_install_states") val deckInstallStates: List<DeckInstallStateSyncDto> = emptyList(),
     @Json(name = "deck_word_refs") val deckWordRefs: List<DeckWordRefSyncDto>,
     val tests: List<TestSyncDto>,
     @Json(name = "test_word_logs") val testWordLogs: List<TestWordLogSyncDto>,
     @Json(name = "ended_test_results") val endedTestResults: List<EndedTestResultSyncDto>,
+    @Json(name = "client_sync_version") val clientSyncVersion: Int? = null,
     @Json(name = "synced_at") val syncedAt: Long,
 )

@@ -2,6 +2,7 @@ package com.mistbottle.jpnwordtrainer.data.model
 
 import java.time.LocalDate
 import com.mistbottle.jpnwordtrainer.data.local.entity.DeckEntity
+import com.mistbottle.jpnwordtrainer.data.local.entity.DeckInstallStateEntity
 import com.mistbottle.jpnwordtrainer.data.local.entity.TestEntity
 import com.mistbottle.jpnwordtrainer.data.local.entity.WordEntity
 
@@ -262,6 +263,17 @@ data class HomeData(
 data class DeckDetailData(
     val deck: DeckEntity,
     val words: List<WordEntity>,
+    val installState: DeckInstallStateEntity? = null,
+)
+
+data class BuiltinDeckUpdateInfo(
+    val stableKey: String,
+    val name: String,
+    val currentVersionCode: Int,
+    val targetVersionCode: Int,
+    val targetVersionLabel: String,
+    val changelog: String,
+    val updateAvailable: Boolean,
 )
 
 data class WordDetailData(

@@ -19,6 +19,8 @@ data class TestEntity(
     val status: TestStatus,
     val deckId: Long?,
     val deckNameSnapshot: String,
+    val sourceDeckStableKey: String? = null,
+    val sourceDeckVersionCode: Int? = null,
     val isAiDeck: Boolean,
     val onlyUnseenWords: Boolean,
     val wordOrder: WordOrder,

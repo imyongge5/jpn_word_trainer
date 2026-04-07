@@ -11,6 +11,9 @@ data class DeckEntity(
     val description: String,
     val type: DeckType,
     val sourceTag: String,
+    val stableKey: String? = null,
+    val deckVersionCode: Int? = null,
+    val isBuiltin: Boolean = false,
     val displayOrder: Int,
     val createdAt: Long,
 )

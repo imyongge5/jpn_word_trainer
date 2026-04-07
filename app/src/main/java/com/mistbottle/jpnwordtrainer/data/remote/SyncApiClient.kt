@@ -23,6 +23,7 @@ class SyncApiClient(
     private val authRequestAdapter: JsonAdapter<AuthRequestDto> = moshi.adapter(AuthRequestDto::class.java)
     private val tokenResponseAdapter: JsonAdapter<AuthTokenResponseDto> = moshi.adapter(AuthTokenResponseDto::class.java)
     private val syncPayloadAdapter: JsonAdapter<SyncPayloadDto> = moshi.adapter(SyncPayloadDto::class.java)
+    private val builtinDeckUpdateAdapter: JsonAdapter<BuiltinDeckUpdatePackageDto> = moshi.adapter(BuiltinDeckUpdatePackageDto::class.java)
     private val jsonMediaType = "application/json".toMediaType()
 
     suspend fun register(username: String, password: String): Unit = withContext(Dispatchers.IO) {
@@ -80,6 +81,26 @@ class SyncApiClient(
             }
             return@withContext syncPayloadAdapter.fromJson(raw)
                 ?: throw SyncApiException("동기화 응답을 해석하지 못했습니다.")
+        }
+    }
+
+    suspend fun getBuiltinDeckUpdatePackage(
+        token: String,
+        stableKey: String,
+        currentVersionCode: Int,
+    ): BuiltinDeckUpdatePackageDto = withContext(Dispatchers.IO) {
+        val request = Request.Builder()
+            .url("$normalizedBaseUrl/builtin-decks/$stableKey/update-package?current_version_code=$currentVersionCode")
+            .header("Authorization", "Bearer $token")
+            .get()
+            .build()
+        httpClient.newCall(request).execute().use { response ->
+            val raw = response.body?.string().orEmpty()
+            if (!response.isSuccessful) {
+                throw SyncApiException(raw.ifBlank { "덱 업데이트 정보를 가져오지 못했습니다." })
+            }
+            return@withContext builtinDeckUpdateAdapter.fromJson(raw)
+                ?: throw SyncApiException("덱 업데이트 응답을 해석하지 못했습니다.")
         }
     }
 }

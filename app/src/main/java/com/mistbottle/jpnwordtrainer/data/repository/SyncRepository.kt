@@ -10,13 +10,16 @@ import java.util.concurrent.TimeUnit
 import com.mistbottle.jpnwordtrainer.data.local.WordbookDatabase
 import com.mistbottle.jpnwordtrainer.data.local.entity.AppSettingEntity
 import com.mistbottle.jpnwordtrainer.data.local.entity.DeckEntity
+import com.mistbottle.jpnwordtrainer.data.local.entity.DeckInstallStateEntity
 import com.mistbottle.jpnwordtrainer.data.local.entity.DeckWordCrossRef
 import com.mistbottle.jpnwordtrainer.data.local.entity.EndedTestResultEntity
 import com.mistbottle.jpnwordtrainer.data.local.entity.TestEntity
 import com.mistbottle.jpnwordtrainer.data.local.entity.TestWordLogEntity
 import com.mistbottle.jpnwordtrainer.data.local.entity.WordEntity
 import com.mistbottle.jpnwordtrainer.data.remote.AuthTokenResponseDto
+import com.mistbottle.jpnwordtrainer.data.remote.BuiltinDeckUpdatePackageDto
 import com.mistbottle.jpnwordtrainer.data.remote.DeckSyncDto
+import com.mistbottle.jpnwordtrainer.data.remote.DeckInstallStateSyncDto
 import com.mistbottle.jpnwordtrainer.data.remote.DeckWordRefSyncDto
 import com.mistbottle.jpnwordtrainer.data.remote.EndedTestResultSyncDto
 import com.mistbottle.jpnwordtrainer.data.remote.SyncApiClient
@@ -26,6 +29,7 @@ import com.mistbottle.jpnwordtrainer.data.remote.TestSyncDto
 import com.mistbottle.jpnwordtrainer.data.remote.TestWordLogSyncDto
 import com.mistbottle.jpnwordtrainer.data.remote.WordSyncDto
 import com.mistbottle.jpnwordtrainer.data.model.DeckType
+import com.mistbottle.jpnwordtrainer.data.model.BuiltinDeckUpdateInfo
 import com.mistbottle.jpnwordtrainer.data.model.TestStatus
 import com.mistbottle.jpnwordtrainer.data.model.WordField
 import com.mistbottle.jpnwordtrainer.data.model.WordOrder
@@ -138,9 +142,6 @@ class SyncRepository(
         val serverUrl = appSettingDao.getValue(SERVER_URL_KEY).orEmpty()
         val token = appSettingDao.getValue(AUTH_TOKEN_KEY).orEmpty()
         if (serverUrl.isBlank() || token.isBlank()) return@withContext SyncResult.NotConfigured
-        if (studyDao.getInProgressTestCount() > 0) {
-            return@withContext SyncResult.Error("진행 중인 시험이 있어서 서버 데이터를 가져올 수 없어요.")
-        }
         return@withContext runCatching {
             val payload = SyncApiClient(serverUrl, httpClient).pull(token)
             applyPullPayload(payload)
@@ -160,6 +161,65 @@ class SyncRepository(
         }
     }
 
+    suspend fun restoreFromServer(): SyncResult = pull()
+
+    suspend fun getBuiltinDeckUpdateInfo(deckId: Long): BuiltinDeckUpdateInfo? = withContext(Dispatchers.IO) {
+        val serverUrl = appSettingDao.getValue(SERVER_URL_KEY).orEmpty()
+        val token = appSettingDao.getValue(AUTH_TOKEN_KEY).orEmpty()
+        if (serverUrl.isBlank() || token.isBlank()) return@withContext null
+        val deck = deckDao.getDeckById(deckId) ?: return@withContext null
+        if (!deck.isBuiltin || deck.stableKey.isNullOrBlank()) return@withContext null
+        val installState = deckDao.getDeckInstallState(deckId)
+        val currentVersionCode = installState?.currentVersionCode ?: deck.deckVersionCode ?: 1
+        val updatePackage = SyncApiClient(serverUrl, httpClient).getBuiltinDeckUpdatePackage(
+            token = token,
+            stableKey = deck.stableKey,
+            currentVersionCode = currentVersionCode,
+        )
+        upsertDeckInstallState(
+            stableKey = updatePackage.stableKey,
+            deckId = deckId,
+            currentVersionCode = currentVersionCode,
+            latestKnownVersionCode = maxOf(currentVersionCode, updatePackage.targetVersionCode),
+            updateAvailable = updatePackage.updateAvailable,
+            isLegacyVersion = installState?.isLegacyVersion ?: true,
+        )
+        BuiltinDeckUpdateInfo(
+            stableKey = updatePackage.stableKey,
+            name = updatePackage.name,
+            currentVersionCode = currentVersionCode,
+            targetVersionCode = updatePackage.targetVersionCode,
+            targetVersionLabel = updatePackage.targetVersionLabel,
+            changelog = updatePackage.changelog,
+            updateAvailable = updatePackage.updateAvailable,
+        )
+    }
+
+    suspend fun applyBuiltinDeckUpdate(deckId: Long): SyncResult = withContext(Dispatchers.IO) {
+        val serverUrl = appSettingDao.getValue(SERVER_URL_KEY).orEmpty()
+        val token = appSettingDao.getValue(AUTH_TOKEN_KEY).orEmpty()
+        if (serverUrl.isBlank() || token.isBlank()) return@withContext SyncResult.NotConfigured
+        val deck = deckDao.getDeckById(deckId) ?: return@withContext SyncResult.Error("덱 정보를 찾지 못했어요.")
+        if (!deck.isBuiltin || deck.stableKey.isNullOrBlank()) {
+            return@withContext SyncResult.Error("기본 덱만 업데이트할 수 있어요.")
+        }
+        if (studyDao.getInProgressTestForDeck(deckId) != null) {
+            return@withContext SyncResult.Error("진행 중인 시험이 있어서 지금은 업데이트할 수 없어요.")
+        }
+        runCatching {
+            val currentVersionCode = deckDao.getDeckInstallState(deckId)?.currentVersionCode ?: deck.deckVersionCode ?: 1
+            val updatePackage = SyncApiClient(serverUrl, httpClient).getBuiltinDeckUpdatePackage(
+                token = token,
+                stableKey = deck.stableKey,
+                currentVersionCode = currentVersionCode,
+            )
+            applyBuiltinDeckUpdatePackage(deck, updatePackage)
+        }.fold(
+            onSuccess = { SyncResult.Success },
+            onFailure = { SyncResult.Error(it.message ?: "기본 덱 업데이트에 실패했어요.") },
+        )
+    }
+
     private suspend fun saveAuthState(serverUrl: String, response: AuthTokenResponseDto) {
         appSettingDao.upsert(AppSettingEntity(SERVER_URL_KEY, serverUrl))
         appSettingDao.upsert(AppSettingEntity(AUTH_TOKEN_KEY, response.accessToken))
@@ -170,31 +230,38 @@ class SyncRepository(
         val words = wordDao.getAllWordsByNewest()
         val decks = deckDao.getDecks().mapNotNull { deckWithCount -> deckDao.getDeckById(deckWithCount.id) }
         val refs = deckDao.getAllDeckWordCrossRefs()
+        val customDecks = decks.filter { it.type == DeckType.CUSTOM }
+        val customDeckIds = customDecks.map { it.id }.toSet()
+        val customRefs = refs.filter { it.deckId in customDeckIds }
+        val customWordIds = customRefs.map { it.wordId }.toSet()
+        val syncedWords = words.filter { it.id in customWordIds }
         val tests = studyDao.getAllTests()
         val logs = studyDao.getAllTestWordLogs()
         val results = studyDao.getAllEndedTestResults()
         return SyncPayloadDto(
-            words = words.map(::wordToDto),
-            decks = decks.map(::deckToDto),
-            deckWordRefs = refs.map(::refToDto),
+            words = syncedWords.map(::wordToDto),
+            decks = customDecks.map(::deckToDto),
+            deckInstallStates = deckDao.getAllDeckInstallStates().map(::installStateToDto),
+            deckWordRefs = customRefs.map(::refToDto),
             tests = tests.map(::testToDto),
             testWordLogs = logs.map(::logToDto),
             endedTestResults = results.map(::resultToDto),
+            clientSyncVersion = CLIENT_SYNC_VERSION,
             syncedAt = System.currentTimeMillis(),
         )
     }
 
     private suspend fun applyPullPayload(payload: SyncPayloadDto) {
         database.withTransaction {
-            studyDao.clearAllEndedTestResults()
-            studyDao.clearAllTestWordLogs()
-            studyDao.clearAllTests()
-            deckDao.clearAllDeckWordCrossRefs()
-            deckDao.clearAllDecks()
-            wordDao.clearAll()
-
             wordDao.insertWords(payload.words.map(::dtoToWord))
             deckDao.insertDecks(payload.decks.map(::dtoToDeck))
+            if (payload.deckInstallStates.isNotEmpty()) {
+                deckDao.insertDeckInstallStates(payload.deckInstallStates.map(::dtoToInstallState))
+            }
+            val incomingDeckIds = payload.decks.map { it.id }
+            if (incomingDeckIds.isNotEmpty()) {
+                deckDao.deleteDeckWordCrossRefsForDeckIds(incomingDeckIds)
+            }
             deckDao.insertDeckWordCrossRefs(payload.deckWordRefs.map(::dtoToRef))
             studyDao.insertTests(payload.tests.map(::dtoToTest))
             studyDao.insertTestWordLogs(payload.testWordLogs.map(::dtoToLog))
@@ -225,8 +292,21 @@ class SyncRepository(
         description = entity.description,
         type = entity.type.name,
         sourceTag = entity.sourceTag,
+        stableKey = entity.stableKey,
+        deckVersionCode = entity.deckVersionCode,
+        isBuiltin = entity.isBuiltin,
         displayOrder = entity.displayOrder,
         createdAt = entity.createdAt,
+    )
+
+    private fun installStateToDto(entity: DeckInstallStateEntity) = DeckInstallStateSyncDto(
+        deckId = entity.deckId,
+        stableKey = entity.stableKey,
+        currentVersionCode = entity.currentVersionCode,
+        latestKnownVersionCode = entity.latestKnownVersionCode,
+        updateAvailable = entity.updateAvailable,
+        isLegacyVersion = entity.isLegacyVersion,
+        lastCheckedAt = entity.lastCheckedAt,
     )
 
     private fun refToDto(entity: DeckWordCrossRef) = DeckWordRefSyncDto(
@@ -241,7 +321,10 @@ class SyncRepository(
         status = entity.status.name,
         deckId = entity.deckId,
         deckNameSnapshot = entity.deckNameSnapshot,
+        sourceDeckStableKey = entity.sourceDeckStableKey,
+        sourceDeckVersionCode = entity.sourceDeckVersionCode,
         isAiDeck = entity.isAiDeck,
+        onlyUnseenWords = entity.onlyUnseenWords,
         wordOrder = entity.wordOrder.name,
         frontField = entity.frontField.name,
         revealField = entity.revealField.name,
@@ -265,6 +348,8 @@ class SyncRepository(
         testId = entity.testId,
         deckId = entity.deckId,
         deckNameSnapshot = entity.deckNameSnapshot,
+        sourceDeckStableKey = entity.sourceDeckStableKey,
+        sourceDeckVersionCode = entity.sourceDeckVersionCode,
         isAiDeck = entity.isAiDeck,
         totalWordCount = entity.totalWordCount,
         correctCount = entity.correctCount,
@@ -298,8 +383,21 @@ class SyncRepository(
         description = dto.description,
         type = DeckType.valueOf(dto.type),
         sourceTag = dto.sourceTag,
+        stableKey = dto.stableKey,
+        deckVersionCode = dto.deckVersionCode,
+        isBuiltin = dto.isBuiltin ?: false,
         displayOrder = dto.displayOrder,
         createdAt = dto.createdAt,
+    )
+
+    private fun dtoToInstallState(dto: DeckInstallStateSyncDto) = DeckInstallStateEntity(
+        deckId = dto.deckId,
+        stableKey = dto.stableKey,
+        currentVersionCode = dto.currentVersionCode,
+        latestKnownVersionCode = dto.latestKnownVersionCode,
+        updateAvailable = dto.updateAvailable,
+        isLegacyVersion = dto.isLegacyVersion,
+        lastCheckedAt = dto.lastCheckedAt,
     )
 
     private fun dtoToRef(dto: DeckWordRefSyncDto) = DeckWordCrossRef(
@@ -314,6 +412,8 @@ class SyncRepository(
         status = TestStatus.valueOf(dto.status),
         deckId = dto.deckId,
         deckNameSnapshot = dto.deckNameSnapshot,
+        sourceDeckStableKey = dto.sourceDeckStableKey,
+        sourceDeckVersionCode = dto.sourceDeckVersionCode,
         isAiDeck = dto.isAiDeck,
         onlyUnseenWords = dto.onlyUnseenWords,
         wordOrder = WordOrder.valueOf(dto.wordOrder),
@@ -339,6 +439,8 @@ class SyncRepository(
         testId = dto.testId,
         deckId = dto.deckId,
         deckNameSnapshot = dto.deckNameSnapshot,
+        sourceDeckStableKey = dto.sourceDeckStableKey,
+        sourceDeckVersionCode = dto.sourceDeckVersionCode,
         isAiDeck = dto.isAiDeck,
         totalWordCount = dto.totalWordCount,
         correctCount = dto.correctCount,
@@ -361,11 +463,82 @@ class SyncRepository(
     }
 
     companion object {
+        private const val CLIENT_SYNC_VERSION = 2
         private const val SERVER_URL_KEY = "server_url"
         private const val USERNAME_KEY = "sync_username"
         private const val AUTH_TOKEN_KEY = "sync_auth_token"
         private const val SYNC_ON_EXAM_COMPLETE_KEY = "sync_on_exam_complete"
         private const val TRUE_VALUE = "true"
         private const val FALSE_VALUE = "false"
+    }
+
+    private suspend fun applyBuiltinDeckUpdatePackage(
+        deck: DeckEntity,
+        updatePackage: BuiltinDeckUpdatePackageDto,
+    ) {
+        if (!updatePackage.updateAvailable) {
+            upsertDeckInstallState(
+                stableKey = updatePackage.stableKey,
+                deckId = deck.id,
+                currentVersionCode = deck.deckVersionCode ?: 1,
+                latestKnownVersionCode = updatePackage.targetVersionCode,
+                updateAvailable = false,
+                isLegacyVersion = false,
+            )
+            return
+        }
+        database.withTransaction {
+            wordDao.insertWords(updatePackage.words.map(::dtoToWord))
+            deckDao.insertDeck(
+                deck.copy(
+                    name = updatePackage.name,
+                    stableKey = updatePackage.stableKey,
+                    deckVersionCode = updatePackage.targetVersionCode,
+                    isBuiltin = true,
+                ),
+            )
+            deckDao.deleteDeckWordCrossRefsForDeck(deck.id)
+            deckDao.insertDeckWordCrossRefs(
+                updatePackage.deckWordRefs.map { ref ->
+                    DeckWordCrossRef(
+                        deckId = deck.id,
+                        wordId = ref.wordId,
+                        displayOrder = ref.displayOrder,
+                        addedAt = ref.addedAt,
+                    )
+                },
+            )
+            upsertDeckInstallState(
+                stableKey = updatePackage.stableKey,
+                deckId = deck.id,
+                currentVersionCode = updatePackage.targetVersionCode,
+                latestKnownVersionCode = updatePackage.targetVersionCode,
+                updateAvailable = false,
+                isLegacyVersion = false,
+            )
+        }
+    }
+
+    private suspend fun upsertDeckInstallState(
+        stableKey: String,
+        deckId: Long,
+        currentVersionCode: Int,
+        latestKnownVersionCode: Int,
+        updateAvailable: Boolean,
+        isLegacyVersion: Boolean,
+    ) {
+        val existing = deckDao.getDeckInstallStateByStableKey(stableKey)
+        deckDao.insertDeckInstallState(
+            DeckInstallStateEntity(
+                id = existing?.id ?: 0,
+                deckId = deckId,
+                stableKey = stableKey,
+                currentVersionCode = currentVersionCode,
+                latestKnownVersionCode = latestKnownVersionCode,
+                updateAvailable = updateAvailable,
+                isLegacyVersion = isLegacyVersion,
+                lastCheckedAt = System.currentTimeMillis(),
+            ),
+        )
     }
 }

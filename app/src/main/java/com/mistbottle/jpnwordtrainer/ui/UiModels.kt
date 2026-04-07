@@ -3,6 +3,7 @@ package com.mistbottle.jpnwordtrainer.ui
 import com.mistbottle.jpnwordtrainer.data.local.entity.DeckEntity
 import com.mistbottle.jpnwordtrainer.data.local.entity.WordEntity
 import com.mistbottle.jpnwordtrainer.data.model.DeckWithCount
+import com.mistbottle.jpnwordtrainer.data.model.BuiltinDeckUpdateInfo
 import com.mistbottle.jpnwordtrainer.data.model.DeckDateStatsData
 import com.mistbottle.jpnwordtrainer.data.model.DeckStatsData
 import com.mistbottle.jpnwordtrainer.data.model.ExamSessionData
@@ -27,6 +28,8 @@ data class DeckDetailUiState(
     val isLoading: Boolean = true,
     val deck: DeckEntity? = null,
     val words: List<WordEntity> = emptyList(),
+    val builtinUpdateInfo: BuiltinDeckUpdateInfo? = null,
+    val isUpdatingBuiltinDeck: Boolean = false,
     val errorMessage: String? = null,
 )
 
@@ -112,6 +115,7 @@ data class SettingsUiState(
     val isLoggedIn: Boolean = false,
     val syncOnExamComplete: Boolean = false,
     val isWorking: Boolean = false,
+    val isRestoring: Boolean = false,
     val message: String? = null,
 )
 

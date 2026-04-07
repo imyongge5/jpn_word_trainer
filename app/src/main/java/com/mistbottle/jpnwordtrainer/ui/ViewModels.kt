@@ -70,6 +70,7 @@ class AllWordsViewModel(
 
 class DeckDetailViewModel(
     private val repository: WordbookRepository,
+    private val syncRepository: SyncRepository,
     private val deckId: Long,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(DeckDetailUiState())
@@ -83,6 +84,7 @@ class DeckDetailViewModel(
                 isLoading = false,
                 deck = detail.deck,
                 words = detail.words,
+                builtinUpdateInfo = syncRepository.getBuiltinDeckUpdateInfo(deckId),
             )
             repository.observeDeckWords(deckId).collectLatest { words ->
                 _uiState.value = _uiState.value.copy(
@@ -90,6 +92,36 @@ class DeckDetailViewModel(
                     words = words,
                 )
             }
+        }
+    }
+
+    fun refreshBuiltinUpdateInfo() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(builtinUpdateInfo = syncRepository.getBuiltinDeckUpdateInfo(deckId)) }
+        }
+    }
+
+    fun applyBuiltinDeckUpdate() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isUpdatingBuiltinDeck = true, errorMessage = null) }
+            when (val result = syncRepository.applyBuiltinDeckUpdate(deckId)) {
+                SyncResult.Success -> {
+                    val detail = repository.getDeckDetail(deckId)
+                    _uiState.value = DeckDetailUiState(
+                        isLoading = false,
+                        deck = detail.deck,
+                        words = detail.words,
+                        builtinUpdateInfo = syncRepository.getBuiltinDeckUpdateInfo(deckId),
+                    )
+                }
+                is SyncResult.Error -> _uiState.update {
+                    it.copy(isUpdatingBuiltinDeck = false, errorMessage = result.message)
+                }
+                SyncResult.NotConfigured -> _uiState.update {
+                    it.copy(isUpdatingBuiltinDeck = false, errorMessage = "서버 주소와 로그인 정보를 먼저 설정해 주세요.")
+                }
+            }
+            _uiState.update { it.copy(isUpdatingBuiltinDeck = false) }
         }
     }
 }
@@ -434,6 +466,7 @@ class SettingsViewModel(
                     syncOnExamComplete = syncOnExamComplete,
                     password = _uiState.value.password,
                     isWorking = _uiState.value.isWorking,
+                    isRestoring = _uiState.value.isRestoring,
                     message = _uiState.value.message,
                 )
             }.collectLatest { _uiState.value = it }
@@ -518,6 +551,23 @@ class SettingsViewModel(
                 is SyncResult.Error -> _uiState.update { it.copy(isWorking = false, message = result.message) }
                 SyncResult.NotConfigured -> _uiState.update {
                     it.copy(isWorking = false, message = "서버 주소와 로그인 정보를 먼저 설정해 주세요.")
+                }
+            }
+        }
+    }
+
+    fun restoreFromServer() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isRestoring = true, message = null) }
+            when (val result = syncRepository.restoreFromServer()) {
+                SyncResult.Success -> _uiState.update {
+                    it.copy(isRestoring = false, message = "서버 데이터를 가져왔어요.")
+                }
+                is SyncResult.Error -> _uiState.update {
+                    it.copy(isRestoring = false, message = result.message)
+                }
+                SyncResult.NotConfigured -> _uiState.update {
+                    it.copy(isRestoring = false, message = "서버 주소와 로그인 정보를 먼저 설정해 주세요.")
                 }
             }
         }

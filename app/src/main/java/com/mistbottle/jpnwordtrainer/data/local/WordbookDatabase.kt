@@ -9,6 +9,7 @@ import com.mistbottle.jpnwordtrainer.data.local.dao.StudyDao
 import com.mistbottle.jpnwordtrainer.data.local.dao.WordDao
 import com.mistbottle.jpnwordtrainer.data.local.entity.AppSettingEntity
 import com.mistbottle.jpnwordtrainer.data.local.entity.DeckEntity
+import com.mistbottle.jpnwordtrainer.data.local.entity.DeckInstallStateEntity
 import com.mistbottle.jpnwordtrainer.data.local.entity.DeckWordCrossRef
 import com.mistbottle.jpnwordtrainer.data.local.entity.EndedTestResultEntity
 import com.mistbottle.jpnwordtrainer.data.local.entity.TestEntity
@@ -19,13 +20,14 @@ import com.mistbottle.jpnwordtrainer.data.local.entity.WordEntity
     entities = [
         AppSettingEntity::class,
         DeckEntity::class,
+        DeckInstallStateEntity::class,
         DeckWordCrossRef::class,
         EndedTestResultEntity::class,
         TestEntity::class,
         TestWordLogEntity::class,
         WordEntity::class,
     ],
-    version = 6,
+    version = 7,
     exportSchema = false,
 )
 @TypeConverters(Converters::class)

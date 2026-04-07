@@ -13,6 +13,7 @@ import kotlin.random.Random
 import com.mistbottle.jpnwordtrainer.data.local.WordbookDatabase
 import com.mistbottle.jpnwordtrainer.data.local.entity.AppSettingEntity
 import com.mistbottle.jpnwordtrainer.data.local.entity.DeckEntity
+import com.mistbottle.jpnwordtrainer.data.local.entity.DeckInstallStateEntity
 import com.mistbottle.jpnwordtrainer.data.local.entity.DeckWordCrossRef
 import com.mistbottle.jpnwordtrainer.data.local.entity.EndedTestResultEntity
 import com.mistbottle.jpnwordtrainer.data.local.entity.TestEntity
@@ -94,18 +95,51 @@ class WordbookRepository(
 
     private suspend fun ensureDefaultDecks(now: Long) {
         DEFAULT_DECKS.forEachIndexed { index, deck ->
-            val existingDeck = deckDao.getDeckBySourceTag(deck.tag)
-            if (existingDeck == null) {
+            val createdDeckId = if (deckDao.getDeckBySourceTag(deck.tag) == null) {
                 deckDao.insertDeck(
                     DeckEntity(
                         name = deck.name,
                         description = deck.description,
                         type = DeckType.JLPT,
                         sourceTag = deck.tag,
+                        stableKey = deck.key,
+                        deckVersionCode = BUILTIN_DECK_INITIAL_VERSION,
+                        isBuiltin = true,
                         displayOrder = index,
                         createdAt = now + index,
                     ),
                 )
+            } else {
+                null
+            }
+            val existingDeck = deckDao.getDeckBySourceTag(deck.tag)
+            val deckEntity = when {
+                existingDeck != null && (!existingDeck.isBuiltin || existingDeck.stableKey != deck.key || existingDeck.deckVersionCode == null) -> {
+                    existingDeck.copy(
+                        stableKey = deck.key,
+                        deckVersionCode = existingDeck.deckVersionCode ?: BUILTIN_DECK_INITIAL_VERSION,
+                        isBuiltin = true,
+                    ).also { deckDao.insertDeck(it) }
+                }
+                existingDeck != null -> existingDeck
+                createdDeckId != null -> requireNotNull(deckDao.getDeckById(createdDeckId))
+                else -> null
+            }
+            if (deckEntity != null) {
+                val installState = deckDao.getDeckInstallState(deckEntity.id)
+                if (installState == null) {
+                    deckDao.insertDeckInstallState(
+                        DeckInstallStateEntity(
+                            deckId = deckEntity.id,
+                            stableKey = deck.key,
+                            currentVersionCode = deckEntity.deckVersionCode ?: BUILTIN_DECK_INITIAL_VERSION,
+                            latestKnownVersionCode = deckEntity.deckVersionCode ?: BUILTIN_DECK_INITIAL_VERSION,
+                            updateAvailable = false,
+                            isLegacyVersion = true,
+                            lastCheckedAt = now,
+                        ),
+                    )
+                }
             }
         }
     }
@@ -117,6 +151,9 @@ class WordbookRepository(
                 description = "직접 만든 커스텀 단어장",
                 type = DeckType.CUSTOM,
                 sourceTag = "CUSTOM",
+                stableKey = null,
+                deckVersionCode = null,
+                isBuiltin = false,
                 displayOrder = Int.MAX_VALUE,
                 createdAt = System.currentTimeMillis(),
             ),
@@ -126,7 +163,11 @@ class WordbookRepository(
     suspend fun getDeckDetail(deckId: Long): DeckDetailData = withContext(Dispatchers.IO) {
         expireStaleTests()
         val deck = requireNotNull(deckDao.getDeckById(deckId))
-        DeckDetailData(deck = deck, words = deckDao.getWordsForDeck(deckId))
+        DeckDetailData(
+            deck = deck,
+            words = deckDao.getWordsForDeck(deckId),
+            installState = deckDao.getDeckInstallState(deckId),
+        )
     }
 
     suspend fun getAllDecks() = withContext(Dispatchers.IO) { deckDao.getDecks() }
@@ -241,12 +282,15 @@ class WordbookRepository(
             requestedWordCount?.let { ordered.take(it.coerceAtMost(ordered.size)) } ?: ordered
         }
         val deckName = if (useAiSelection) "AI 단어장" else requireNotNull(deckDao.getDeckById(requireNotNull(deckId))).name
+        val sourceDeck = deckId?.let { deckDao.getDeckById(it) }
         val now = System.currentTimeMillis()
         studyDao.insertTest(
             TestEntity(
                 status = TestStatus.IN_PROGRESS,
                 deckId = deckId,
                 deckNameSnapshot = deckName,
+                sourceDeckStableKey = sourceDeck?.stableKey,
+                sourceDeckVersionCode = sourceDeck?.deckVersionCode,
                 isAiDeck = useAiSelection,
                 onlyUnseenWords = settings.onlyUnseenWords,
                 wordOrder = settings.wordOrder,
@@ -319,6 +363,8 @@ class WordbookRepository(
                     testId = sessionId,
                     deckId = test.deckId,
                     deckNameSnapshot = test.deckNameSnapshot,
+                    sourceDeckStableKey = test.sourceDeckStableKey,
+                    sourceDeckVersionCode = test.sourceDeckVersionCode,
                     isAiDeck = test.isAiDeck,
                     totalWordCount = test.totalWordCount,
                     correctCount = correctCount,
@@ -720,6 +766,7 @@ class WordbookRepository(
 
     private companion object {
         private const val AI_DECK_SIZE = 30
+        private const val BUILTIN_DECK_INITIAL_VERSION = 1
         private const val SEED_KEY = "seed_v6"
         private const val SEEDED_VALUE = "done"
         private const val THEME_PRESET_KEY = "theme_preset"

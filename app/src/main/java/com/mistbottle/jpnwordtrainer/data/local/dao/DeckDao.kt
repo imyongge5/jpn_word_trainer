@@ -7,6 +7,7 @@ import androidx.room.Query
 import androidx.room.RewriteQueriesToDropUnusedColumns
 import kotlinx.coroutines.flow.Flow
 import com.mistbottle.jpnwordtrainer.data.local.entity.DeckEntity
+import com.mistbottle.jpnwordtrainer.data.local.entity.DeckInstallStateEntity
 import com.mistbottle.jpnwordtrainer.data.local.entity.DeckWordCrossRef
 import com.mistbottle.jpnwordtrainer.data.local.entity.WordEntity
 import com.mistbottle.jpnwordtrainer.data.model.DeckType
@@ -19,6 +20,12 @@ interface DeckDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertDecks(decks: List<DeckEntity>): List<Long>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertDeckInstallState(state: DeckInstallStateEntity): Long
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertDeckInstallStates(states: List<DeckInstallStateEntity>)
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertDeckWordCrossRef(crossRef: DeckWordCrossRef)
@@ -61,6 +68,18 @@ interface DeckDao {
 
     @Query("SELECT * FROM decks WHERE sourceTag = :sourceTag LIMIT 1")
     suspend fun getDeckBySourceTag(sourceTag: String): DeckEntity?
+
+    @Query("SELECT * FROM decks WHERE stableKey = :stableKey LIMIT 1")
+    suspend fun getDeckByStableKey(stableKey: String): DeckEntity?
+
+    @Query("SELECT * FROM deck_install_state WHERE deckId = :deckId LIMIT 1")
+    suspend fun getDeckInstallState(deckId: Long): DeckInstallStateEntity?
+
+    @Query("SELECT * FROM deck_install_state WHERE stableKey = :stableKey LIMIT 1")
+    suspend fun getDeckInstallStateByStableKey(stableKey: String): DeckInstallStateEntity?
+
+    @Query("SELECT * FROM deck_install_state")
+    suspend fun getAllDeckInstallStates(): List<DeckInstallStateEntity>
 
     @Query("SELECT COUNT(*) FROM decks")
     suspend fun getDeckCount(): Int
@@ -107,9 +126,18 @@ interface DeckDao {
     @Query("SELECT * FROM deck_word_cross_ref")
     suspend fun getAllDeckWordCrossRefs(): List<DeckWordCrossRef>
 
+    @Query("DELETE FROM deck_word_cross_ref WHERE deckId = :deckId")
+    suspend fun deleteDeckWordCrossRefsForDeck(deckId: Long)
+
+    @Query("DELETE FROM deck_word_cross_ref WHERE deckId IN (:deckIds)")
+    suspend fun deleteDeckWordCrossRefsForDeckIds(deckIds: List<Long>)
+
     @Query("DELETE FROM deck_word_cross_ref")
     suspend fun clearAllDeckWordCrossRefs()
 
     @Query("DELETE FROM decks")
     suspend fun clearAllDecks()
+
+    @Query("DELETE FROM deck_install_state")
+    suspend fun clearAllDeckInstallStates()
 }

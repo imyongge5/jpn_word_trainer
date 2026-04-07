@@ -245,7 +245,7 @@ fun WordbookApp(
                 val deckId = backStackEntry.arguments?.getLong("deckId") ?: return@composable
                 val viewModel: DeckDetailViewModel = viewModel(
                     key = "deck-$deckId",
-                    factory = WordbookViewModelFactory { DeckDetailViewModel(repository, deckId) },
+                    factory = WordbookViewModelFactory { DeckDetailViewModel(repository, syncRepository, deckId) },
                 )
                 DeckRoute(
                     viewModel = viewModel,
@@ -691,6 +691,55 @@ private fun DeckRoute(
 
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(deck.description, style = MaterialTheme.typography.bodyMedium)
+            if (deck.isBuiltin) {
+                SurfaceSectionCard(title = "덱 버전") {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(
+                            text = "현재 버전 v${deck.deckVersionCode ?: 1}",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                        uiState.builtinUpdateInfo?.let { updateInfo ->
+                            Text(
+                                text = if (updateInfo.updateAvailable) {
+                                    "서버 최신 v${updateInfo.targetVersionCode} · ${updateInfo.targetVersionLabel}"
+                                } else {
+                                    "서버와 같은 버전을 사용 중이에요."
+                                },
+                                style = MaterialTheme.typography.bodySmall,
+                                color = InkSoft,
+                            )
+                            if (updateInfo.changelog.isNotBlank()) {
+                                Text(
+                                    text = updateInfo.changelog,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = InkMuted,
+                                )
+                            }
+                            AppPrimaryButton(
+                                text = if (uiState.isUpdatingBuiltinDeck) {
+                                    "업데이트 중..."
+                                } else if (updateInfo.updateAvailable) {
+                                    "덱 업데이트"
+                                } else {
+                                    "업데이트 확인"
+                                },
+                                onClick = {
+                                    if (updateInfo.updateAvailable) {
+                                        viewModel.applyBuiltinDeckUpdate()
+                                    } else {
+                                        viewModel.refreshBuiltinUpdateInfo()
+                                    }
+                                },
+                                enabled = !uiState.isUpdatingBuiltinDeck,
+                            )
+                        } ?: AppSecondaryButton(
+                            text = "업데이트 확인",
+                            onClick = viewModel::refreshBuiltinUpdateInfo,
+                        )
+                    }
+                }
+            }
             DisplayOptionRow(
                 showPartOfSpeech = showPartOfSpeech,
                 onShowPartOfSpeechChange = { showPartOfSpeech = it },
@@ -1685,6 +1734,11 @@ private fun SettingsRoute(
                             text = if (uiState.isWorking) "동기화 중..." else "지금 동기화",
                             onClick = viewModel::manualSync,
                             enabled = !uiState.isWorking,
+                        )
+                        AppSecondaryButton(
+                            text = if (uiState.isRestoring) "복구 중..." else "서버에서 복구",
+                            onClick = viewModel::restoreFromServer,
+                            enabled = !uiState.isRestoring && !uiState.isWorking,
                         )
                     }
                 }
