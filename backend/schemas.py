@@ -46,8 +46,23 @@ class DeckSchema(BaseModel):
     description: str
     type: str
     source_tag: str
+    stable_key: Optional[str] = None
+    deck_version_code: Optional[int] = None
+    is_builtin: Optional[bool] = None
     display_order: int
     created_at: int
+
+
+class DeckInstallStateSchema(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    deck_id: int
+    stable_key: str
+    current_version_code: int
+    latest_known_version_code: int
+    update_available: bool
+    is_legacy_version: bool
+    last_checked_at: int
 
 
 class DeckWordRefSchema(BaseModel):
@@ -66,6 +81,8 @@ class TestSchema(BaseModel):
     status: str
     deck_id: Optional[int]
     deck_name_snapshot: str
+    source_deck_stable_key: Optional[str] = None
+    source_deck_version_code: Optional[int] = None
     is_ai_deck: bool
     only_unseen_words: bool = False
     word_order: str
@@ -95,6 +112,8 @@ class EndedTestResultSchema(BaseModel):
     test_id: int
     deck_id: Optional[int]
     deck_name_snapshot: str
+    source_deck_stable_key: Optional[str] = None
+    source_deck_version_code: Optional[int] = None
     is_ai_deck: bool
     total_word_count: int
     correct_count: int
@@ -105,13 +124,34 @@ class EndedTestResultSchema(BaseModel):
     duration_seconds: int
 
 
+class BuiltinWordMappingSchema(BaseModel):
+    old_word_id: int
+    new_word_id: Optional[int] = None
+    mapping_type: str
+
+
+class BuiltinDeckUpdatePackageSchema(BaseModel):
+    stable_key: str
+    name: str
+    current_version_code: int
+    target_version_code: int
+    target_version_label: str
+    changelog: str
+    update_available: bool
+    words: List[WordSchema]
+    deck_word_refs: List[DeckWordRefSchema]
+    mappings: List[BuiltinWordMappingSchema]
+
+
 class SyncPayload(BaseModel):
     words: List[WordSchema]
     decks: List[DeckSchema]
+    deck_install_states: List[DeckInstallStateSchema] = []
     deck_word_refs: List[DeckWordRefSchema]
     tests: List[TestSchema]
     test_word_logs: List[TestWordLogSchema]
     ended_test_results: List[EndedTestResultSchema]
+    client_sync_version: Optional[int] = None
     synced_at: int
 
 
