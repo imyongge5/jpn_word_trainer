@@ -17,6 +17,13 @@ from schemas import BuiltinDeckUpdatePackageSchema, DeckWordRefSchema, BuiltinWo
 router = APIRouter(prefix="/builtin-decks", tags=["builtin-decks"])
 
 
+def _normalize_builtin_stable_key(value: str) -> str:
+    normalized = value.strip().upper()
+    if normalized.startswith("JLPT "):
+        normalized = normalized.removeprefix("JLPT ").strip()
+    return normalized
+
+
 @router.get("/{stable_key}/update-package", response_model=BuiltinDeckUpdatePackageSchema)
 def get_update_package(
     stable_key: str,
@@ -24,7 +31,8 @@ def get_update_package(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    catalog = db.query(BuiltinDeckCatalog).filter(BuiltinDeckCatalog.stable_key == stable_key).first()
+    normalized_stable_key = _normalize_builtin_stable_key(stable_key)
+    catalog = db.query(BuiltinDeckCatalog).filter(BuiltinDeckCatalog.stable_key == normalized_stable_key).first()
     if catalog is None:
         raise HTTPException(status_code=404, detail="기본 덱 카탈로그를 찾지 못했습니다.")
 
@@ -41,7 +49,7 @@ def get_update_package(
         db.query(UserBuiltinDeckInstall)
         .filter(
             UserBuiltinDeckInstall.user_id == current_user.id,
-            UserBuiltinDeckInstall.stable_key == stable_key,
+            UserBuiltinDeckInstall.stable_key == normalized_stable_key,
         )
         .first()
     )
@@ -72,7 +80,7 @@ def get_update_package(
     ) if update_available else []
 
     return BuiltinDeckUpdatePackageSchema(
-        stable_key=stable_key,
+        stable_key=normalized_stable_key,
         name=catalog.name,
         current_version_code=current_version,
         target_version_code=latest_version.version_code,

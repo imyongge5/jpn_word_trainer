@@ -41,6 +41,19 @@ def _resolve_protocol(payload: SyncPayload) -> tuple[int, str]:
     return client_sync_version, "MODERN_V2" if client_sync_version >= 2 else "LEGACY_V1"
 
 
+def _normalize_builtin_stable_key(value: str | None) -> str | None:
+    if value is None:
+        return None
+    normalized = value.strip().upper()
+    if not normalized:
+        return None
+    if normalized.startswith("JLPT "):
+        normalized = normalized.removeprefix("JLPT ").strip()
+    if normalized in {"N1", "N2", "N3", "N4", "N5"}:
+        return normalized
+    return value.strip()
+
+
 def _upsert_sync_profile(db: Session, user_id: int, client_sync_version: int, protocol_mode: str):
     existing = db.query(UserSyncProfile).filter(UserSyncProfile.user_id == user_id).first()
     now = _now_millis()
@@ -121,7 +134,7 @@ def _merge_custom_decks(db: Session, user_id: int, payload: SyncPayload) -> set[
                     description=item.description,
                     type=item.type,
                     source_tag=item.source_tag,
-                    stable_key=item.stable_key,
+                    stable_key=_normalize_builtin_stable_key(item.stable_key or item.source_tag),
                     deck_version_code=item.deck_version_code,
                     is_builtin=item.is_builtin or False,
                     display_order=item.display_order,
@@ -133,7 +146,7 @@ def _merge_custom_decks(db: Session, user_id: int, payload: SyncPayload) -> set[
         target.description = item.description
         target.type = item.type
         target.source_tag = item.source_tag
-        target.stable_key = item.stable_key
+        target.stable_key = _normalize_builtin_stable_key(item.stable_key or item.source_tag)
         target.deck_version_code = item.deck_version_code
         target.is_builtin = item.is_builtin or False
         target.display_order = item.display_order
@@ -289,7 +302,7 @@ def _upsert_builtin_installs(db: Session, user_id: int, payload: SyncPayload, pr
         incoming = [
             DeckInstallStateSchema(
                 deck_id=item.id,
-                stable_key=item.stable_key or item.source_tag,
+                stable_key=_normalize_builtin_stable_key(item.stable_key or item.source_tag) or (item.stable_key or item.source_tag),
                 current_version_code=item.deck_version_code or 1,
                 latest_known_version_code=item.deck_version_code or 1,
                 update_available=False,
@@ -301,13 +314,14 @@ def _upsert_builtin_installs(db: Session, user_id: int, payload: SyncPayload, pr
         ]
 
     for item in incoming:
-        target = existing.get(item.stable_key)
+        normalized_stable_key = _normalize_builtin_stable_key(item.stable_key) or item.stable_key
+        target = existing.get(normalized_stable_key)
         if target is None:
             db.add(
                 UserBuiltinDeckInstall(
                     user_id=user_id,
                     deck_id=item.deck_id,
-                    stable_key=item.stable_key,
+                    stable_key=normalized_stable_key,
                     current_version_code=item.current_version_code,
                     latest_known_version_code=item.latest_known_version_code,
                     update_available=item.update_available,
@@ -317,6 +331,7 @@ def _upsert_builtin_installs(db: Session, user_id: int, payload: SyncPayload, pr
             )
             continue
         target.deck_id = item.deck_id
+        target.stable_key = normalized_stable_key
         target.current_version_code = item.current_version_code
         target.latest_known_version_code = item.latest_known_version_code
         target.update_available = item.update_available

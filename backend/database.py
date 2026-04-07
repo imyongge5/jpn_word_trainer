@@ -251,6 +251,15 @@ def migrate_legacy_sync_schema() -> None:
                     is_builtin = CASE WHEN type != 'CUSTOM' THEN 1 ELSE is_builtin END
                 WHERE type != 'CUSTOM'
             """))
+            connection.execute(text("""
+                UPDATE decks
+                SET stable_key = CASE
+                    WHEN UPPER(TRIM(stable_key)) LIKE 'JLPT N_' THEN REPLACE(UPPER(TRIM(stable_key)), 'JLPT ', '')
+                    WHEN UPPER(TRIM(stable_key)) IN ('N1', 'N2', 'N3', 'N4', 'N5') THEN UPPER(TRIM(stable_key))
+                    ELSE stable_key
+                END
+                WHERE type != 'CUSTOM'
+            """))
 
         if "tests" in existing_tables:
             if not has_column_now("tests", "source_deck_stable_key"):
@@ -312,6 +321,28 @@ def migrate_legacy_sync_schema() -> None:
                 CONSTRAINT uq_user_builtin_deck_install UNIQUE (user_id, stable_key),
                 FOREIGN KEY(user_id) REFERENCES users(id)
             )
+        """))
+        connection.execute(text("""
+            DELETE FROM user_builtin_deck_install
+            WHERE id NOT IN (
+                SELECT MAX(id)
+                FROM user_builtin_deck_install
+                GROUP BY
+                    user_id,
+                    CASE
+                        WHEN UPPER(TRIM(stable_key)) LIKE 'JLPT N_' THEN REPLACE(UPPER(TRIM(stable_key)), 'JLPT ', '')
+                        WHEN UPPER(TRIM(stable_key)) IN ('N1', 'N2', 'N3', 'N4', 'N5') THEN UPPER(TRIM(stable_key))
+                        ELSE stable_key
+                    END
+            )
+        """))
+        connection.execute(text("""
+            UPDATE user_builtin_deck_install
+            SET stable_key = CASE
+                WHEN UPPER(TRIM(stable_key)) LIKE 'JLPT N_' THEN REPLACE(UPPER(TRIM(stable_key)), 'JLPT ', '')
+                WHEN UPPER(TRIM(stable_key)) IN ('N1', 'N2', 'N3', 'N4', 'N5') THEN UPPER(TRIM(stable_key))
+                ELSE stable_key
+            END
         """))
         connection.execute(text("""
             CREATE TABLE IF NOT EXISTS builtin_deck_catalog (
