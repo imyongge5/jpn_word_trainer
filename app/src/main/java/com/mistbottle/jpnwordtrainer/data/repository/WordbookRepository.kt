@@ -248,6 +248,7 @@ class WordbookRepository(
                 deckId = deckId,
                 deckNameSnapshot = deckName,
                 isAiDeck = useAiSelection,
+                onlyUnseenWords = settings.onlyUnseenWords,
                 wordOrder = settings.wordOrder,
                 frontField = settings.frontField,
                 revealField = settings.revealField,
@@ -259,13 +260,19 @@ class WordbookRepository(
         )
     }
 
-    suspend fun getInProgressExamData(deckId: Long?, isAiDeck: Boolean): InProgressExamData? = withContext(Dispatchers.IO) {
+    suspend fun getInProgressExamData(deckId: Long?, isAiDeck: Boolean, settings: ExamSettings): InProgressExamData? = withContext(Dispatchers.IO) {
         expireStaleTests()
         val test = when {
             isAiDeck -> studyDao.getInProgressAiTest()
             deckId != null -> studyDao.getInProgressTestForDeck(deckId)
             else -> null
         } ?: return@withContext null
+        val matchesSettings =
+            test.wordOrder == settings.wordOrder &&
+                test.frontField == settings.frontField &&
+                test.revealField == settings.revealField &&
+                test.onlyUnseenWords == settings.onlyUnseenWords
+        if (!matchesSettings) return@withContext null
         InProgressExamData(
             testId = test.id,
             deckName = test.deckNameSnapshot,

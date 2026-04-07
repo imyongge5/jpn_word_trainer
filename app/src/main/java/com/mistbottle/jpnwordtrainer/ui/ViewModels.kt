@@ -168,11 +168,16 @@ class ExamSetupViewModel(
             val detail = deckId?.let { repository.getDeckDetail(it) }
             val totalWordCount = if (isAiDeck) 30 else detail?.words?.size ?: 0
             val unseenWordCount = if (isAiDeck || deckId == null) 0 else repository.getUnseenWordCountForDeck(deckId)
-            val inProgressExam = repository.getInProgressExamData(deckId = deckId, isAiDeck = isAiDeck)
+            val defaultSettings = ExamSettings()
+            val inProgressExam = repository.getInProgressExamData(
+                deckId = deckId,
+                isAiDeck = isAiDeck,
+                settings = defaultSettings,
+            )
             _uiState.value = ExamSetupUiState(
                 isLoading = false,
                 deck = detail?.deck,
-                settings = ExamSettings(),
+                settings = defaultSettings,
                 isAiDeck = isAiDeck,
                 canStart = isAiDeck || totalWordCount > 0,
                 inProgressExam = inProgressExam,
@@ -187,18 +192,21 @@ class ExamSetupViewModel(
         _uiState.value = _uiState.value.copy(
             settings = _uiState.value.settings.copy(wordOrder = value),
         )
+        refreshMatchingInProgressExam()
     }
 
     fun setFrontField(value: WordField) {
         _uiState.value = _uiState.value.copy(
             settings = _uiState.value.settings.copy(frontField = value),
         )
+        refreshMatchingInProgressExam()
     }
 
     fun setRevealField(value: WordField) {
         _uiState.value = _uiState.value.copy(
             settings = _uiState.value.settings.copy(revealField = value),
         )
+        refreshMatchingInProgressExam()
     }
 
     fun setOnlyUnseenWords(value: Boolean) {
@@ -219,6 +227,7 @@ class ExamSetupViewModel(
                 hasWords = updatedAvailableWordCount > 0,
             ),
         )
+        refreshMatchingInProgressExam()
     }
 
     fun setWordCountOption(value: ExamWordCountOption) {
@@ -239,6 +248,7 @@ class ExamSetupViewModel(
                 hasWords = _uiState.value.isAiDeck || _uiState.value.availableWordCount > 0,
             ),
         )
+        refreshMatchingInProgressExam()
     }
 
     fun setCustomWordCountInput(value: String) {
@@ -288,6 +298,17 @@ class ExamSetupViewModel(
     ): Int {
         if (isAiDeck) return totalWordCount
         return if (onlyUnseenWords) unseenWordCount else totalWordCount
+    }
+
+    private fun refreshMatchingInProgressExam() {
+        viewModelScope.launch {
+            val matchingExam = repository.getInProgressExamData(
+                deckId = deckId,
+                isAiDeck = isAiDeck,
+                settings = _uiState.value.settings,
+            )
+            _uiState.update { it.copy(inProgressExam = matchingExam) }
+        }
     }
 }
 

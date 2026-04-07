@@ -315,6 +315,7 @@ class SyncRepository(
         deckId = dto.deckId,
         deckNameSnapshot = dto.deckNameSnapshot,
         isAiDeck = dto.isAiDeck,
+        onlyUnseenWords = dto.onlyUnseenWords,
         wordOrder = WordOrder.valueOf(dto.wordOrder),
         frontField = WordField.valueOf(dto.frontField),
         revealField = WordField.valueOf(dto.revealField),

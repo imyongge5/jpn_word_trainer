@@ -20,6 +20,7 @@ data class TestEntity(
     val deckId: Long?,
     val deckNameSnapshot: String,
     val isAiDeck: Boolean,
+    val onlyUnseenWords: Boolean,
     val wordOrder: WordOrder,
     val frontField: WordField,
     val revealField: WordField,

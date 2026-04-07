@@ -19,6 +19,7 @@ class AppContainer(context: Context) {
         .addMigrations(MIGRATION_2_3)
         .addMigrations(MIGRATION_3_4)
         .addMigrations(MIGRATION_4_5)
+        .addMigrations(MIGRATION_5_6)
         .build()
 
     val repository: WordbookRepository = WordbookRepository(database = database)
@@ -193,6 +194,12 @@ class AppContainer(context: Context) {
         val MIGRATION_4_5 = object : Migration(4, 5) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 // no-op: key-value app_settings 확장을 위한 버전 상승만 처리합니다.
+            }
+        }
+
+        val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE tests ADD COLUMN onlyUnseenWords INTEGER NOT NULL DEFAULT 0")
             }
         }
     }

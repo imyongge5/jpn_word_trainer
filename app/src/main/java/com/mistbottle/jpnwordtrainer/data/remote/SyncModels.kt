@@ -53,6 +53,7 @@ data class TestSyncDto(
     @Json(name = "deck_id") val deckId: Long?,
     @Json(name = "deck_name_snapshot") val deckNameSnapshot: String,
     @Json(name = "is_ai_deck") val isAiDeck: Boolean,
+    @Json(name = "only_unseen_words") val onlyUnseenWords: Boolean = false,
     @Json(name = "word_order") val wordOrder: String,
     @Json(name = "front_field") val frontField: String,
     @Json(name = "reveal_field") val revealField: String,
