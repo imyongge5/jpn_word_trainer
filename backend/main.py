@@ -1,11 +1,12 @@
 from fastapi import FastAPI
 
-from database import Base, engine
+from database import Base, engine, migrate_legacy_sync_schema
 from routers.auth_router import router as auth_router
 from routers.health_router import router as health_router
 from routers.sync_router import router as sync_router
 
 
+migrate_legacy_sync_schema()
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Mistbottle JPN Word Trainer API")

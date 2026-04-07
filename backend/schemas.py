@@ -67,6 +67,7 @@ class TestSchema(BaseModel):
     deck_id: Optional[int]
     deck_name_snapshot: str
     is_ai_deck: bool
+    only_unseen_words: bool = False
     word_order: str
     front_field: str
     reveal_field: str

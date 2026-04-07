@@ -15,10 +15,11 @@ class User(Base):
 
 class Word(Base):
     __tablename__ = "words"
-    __table_args__ = (UniqueConstraint("user_id", "id", name="uq_words_user_id_id"),)
+    __table_args__ = (UniqueConstraint("user_id", "client_id", name="uq_words_user_client_id"),)
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False, index=True)
+    server_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    client_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
     reading_ja: Mapped[str] = mapped_column(String, nullable=False)
     reading_ko: Mapped[str] = mapped_column(String, nullable=False, default="")
     part_of_speech: Mapped[str] = mapped_column(String, nullable=False, default="")
@@ -36,10 +37,11 @@ class Word(Base):
 
 class Deck(Base):
     __tablename__ = "decks"
-    __table_args__ = (UniqueConstraint("user_id", "id", name="uq_decks_user_id_id"),)
+    __table_args__ = (UniqueConstraint("user_id", "client_id", name="uq_decks_user_client_id"),)
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False, index=True)
+    server_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    client_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
     name: Mapped[str] = mapped_column(String, nullable=False)
     description: Mapped[str] = mapped_column(String, nullable=False, default="")
     type: Mapped[str] = mapped_column(String, nullable=False)
@@ -50,24 +52,28 @@ class Deck(Base):
 
 class DeckWordCrossRef(Base):
     __tablename__ = "deck_word_cross_ref"
+    __table_args__ = (UniqueConstraint("user_id", "deck_id", "word_id", name="uq_deck_word_ref_user_ids"),)
 
-    deck_id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
-    word_id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False, index=True)
+    server_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    deck_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    word_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
     display_order: Mapped[int] = mapped_column(Integer, nullable=False)
     added_at: Mapped[int] = mapped_column(BigInteger, nullable=False)
 
 
 class Test(Base):
     __tablename__ = "tests"
-    __table_args__ = (UniqueConstraint("user_id", "id", name="uq_tests_user_id_id"),)
+    __table_args__ = (UniqueConstraint("user_id", "client_id", name="uq_tests_user_client_id"),)
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False, index=True)
+    server_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    client_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
     status: Mapped[str] = mapped_column(String, nullable=False)
     deck_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     deck_name_snapshot: Mapped[str] = mapped_column(String, nullable=False, default="")
     is_ai_deck: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    only_unseen_words: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     word_order: Mapped[str] = mapped_column(String, nullable=False)
     front_field: Mapped[str] = mapped_column(String, nullable=False)
     reveal_field: Mapped[str] = mapped_column(String, nullable=False)
@@ -79,10 +85,11 @@ class Test(Base):
 
 class TestWordLog(Base):
     __tablename__ = "test_word_log"
-    __table_args__ = (UniqueConstraint("user_id", "id", name="uq_test_word_log_user_id_id"),)
+    __table_args__ = (UniqueConstraint("user_id", "client_id", name="uq_test_word_log_user_client_id"),)
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False, index=True)
+    server_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    client_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
     test_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
     word_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
     sequence_index: Mapped[int] = mapped_column(Integer, nullable=False)
@@ -92,10 +99,14 @@ class TestWordLog(Base):
 
 class EndedTestResult(Base):
     __tablename__ = "ended_test_result"
-    __table_args__ = (UniqueConstraint("user_id", "test_id", name="uq_ended_test_result_user_test"),)
+    __table_args__ = (
+        UniqueConstraint("user_id", "client_id", name="uq_ended_test_result_user_client_id"),
+        UniqueConstraint("user_id", "test_id", name="uq_ended_test_result_user_test"),
+    )
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False, index=True)
+    server_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    client_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
     test_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
     deck_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     deck_name_snapshot: Mapped[str] = mapped_column(String, nullable=False, default="")
