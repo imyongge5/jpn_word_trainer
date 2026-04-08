@@ -89,6 +89,7 @@ class TestSchema(BaseModel):
     wrong_only: bool = False
     word_order: str
     front_field: str
+    reveal_field: Optional[str] = None
     reveal_fields: List[str] = Field(default_factory=lambda: ["READING_JA"])
     word_ids_serialized: str
     total_word_count: int

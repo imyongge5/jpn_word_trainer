@@ -186,7 +186,8 @@ def _merge_tests(db: Session, user_id: int, payload: SyncPayload):
         for item in db.query(Test).filter(Test.user_id == user_id).all()
     }
     for item in payload.tests:
-        primary_reveal_field = item.reveal_fields[0] if item.reveal_fields else "READING_JA"
+        resolved_reveal_fields = item.reveal_fields or ([item.reveal_field] if item.reveal_field else [])
+        primary_reveal_field = resolved_reveal_fields[0] if resolved_reveal_fields else "READING_JA"
         target = existing.get(item.id)
         if target is None:
             db.add(
@@ -205,7 +206,7 @@ def _merge_tests(db: Session, user_id: int, payload: SyncPayload):
                     word_order=item.word_order,
                     front_field=item.front_field,
                     reveal_field=primary_reveal_field,
-                    reveal_fields_serialized=",".join(item.reveal_fields),
+                    reveal_fields_serialized=",".join(resolved_reveal_fields) or primary_reveal_field,
                     word_ids_serialized=item.word_ids_serialized,
                     total_word_count=item.total_word_count,
                     started_at=item.started_at,
@@ -226,7 +227,7 @@ def _merge_tests(db: Session, user_id: int, payload: SyncPayload):
             target.word_order = item.word_order
             target.front_field = item.front_field
             target.reveal_field = primary_reveal_field
-            target.reveal_fields_serialized = ",".join(item.reveal_fields)
+            target.reveal_fields_serialized = ",".join(resolved_reveal_fields) or primary_reveal_field
             target.word_ids_serialized = item.word_ids_serialized
             target.total_word_count = item.total_word_count
             target.started_at = item.started_at
@@ -455,6 +456,7 @@ def pull_data(
                 wrong_only=item.wrong_only,
                 word_order=item.word_order,
                 front_field=item.front_field,
+                reveal_field=item.reveal_field,
                 reveal_fields=[field for field in item.reveal_fields_serialized.split(",") if field],
                 word_ids_serialized=item.word_ids_serialized,
                 total_word_count=item.total_word_count,
