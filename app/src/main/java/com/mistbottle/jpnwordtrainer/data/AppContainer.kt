@@ -22,6 +22,7 @@ class AppContainer(context: Context) {
         .addMigrations(MIGRATION_5_6)
         .addMigrations(MIGRATION_6_7)
         .addMigrations(MIGRATION_7_8)
+        .addMigrations(MIGRATION_8_9)
         .build()
 
     val repository: WordbookRepository = WordbookRepository(database = database)
@@ -278,6 +279,67 @@ class AppContainer(context: Context) {
                 db.execSQL("ALTER TABLE tests ADD COLUMN excludeKanaOnly INTEGER NOT NULL DEFAULT 0")
                 db.execSQL("ALTER TABLE tests ADD COLUMN wrongOnly INTEGER NOT NULL DEFAULT 0")
                 db.execSQL("UPDATE tests SET revealFieldsSerialized = revealField")
+            }
+        }
+
+        val MIGRATION_8_9 = object : Migration(8, 9) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS tests_new (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        status TEXT NOT NULL,
+                        deckId INTEGER,
+                        deckNameSnapshot TEXT NOT NULL,
+                        sourceDeckStableKey TEXT,
+                        sourceDeckVersionCode INTEGER,
+                        isAiDeck INTEGER NOT NULL,
+                        onlyUnseenWords INTEGER NOT NULL,
+                        excludeKanaOnly INTEGER NOT NULL,
+                        wrongOnly INTEGER NOT NULL,
+                        wordOrder TEXT NOT NULL,
+                        frontField TEXT NOT NULL,
+                        revealFieldsSerialized TEXT NOT NULL,
+                        wordIdsSerialized TEXT NOT NULL,
+                        totalWordCount INTEGER NOT NULL,
+                        startedAt INTEGER NOT NULL,
+                        changedAt INTEGER NOT NULL
+                    )
+                    """.trimIndent(),
+                )
+                db.execSQL(
+                    """
+                    INSERT INTO tests_new (
+                        id, status, deckId, deckNameSnapshot, sourceDeckStableKey,
+                        sourceDeckVersionCode, isAiDeck, onlyUnseenWords, excludeKanaOnly,
+                        wrongOnly, wordOrder, frontField, revealFieldsSerialized,
+                        wordIdsSerialized, totalWordCount, startedAt, changedAt
+                    )
+                    SELECT
+                        id,
+                        status,
+                        deckId,
+                        deckNameSnapshot,
+                        sourceDeckStableKey,
+                        sourceDeckVersionCode,
+                        isAiDeck,
+                        onlyUnseenWords,
+                        excludeKanaOnly,
+                        wrongOnly,
+                        wordOrder,
+                        frontField,
+                        revealFieldsSerialized,
+                        wordIdsSerialized,
+                        totalWordCount,
+                        startedAt,
+                        changedAt
+                    FROM tests
+                    """.trimIndent(),
+                )
+                db.execSQL("DROP TABLE tests")
+                db.execSQL("ALTER TABLE tests_new RENAME TO tests")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_tests_status_changedAt ON tests(status, changedAt)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_tests_deckId_status_changedAt ON tests(deckId, status, changedAt)")
             }
         }
     }
