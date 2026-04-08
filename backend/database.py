@@ -349,6 +349,8 @@ def migrate_legacy_sync_schema() -> None:
             """))
 
         if "tests" in existing_tables:
+            if not has_column_now("tests", "reveal_field"):
+                connection.execute(text("ALTER TABLE tests ADD COLUMN reveal_field VARCHAR NOT NULL DEFAULT 'READING_JA'"))
             if not has_column_now("tests", "exclude_kana_only"):
                 connection.execute(text("ALTER TABLE tests ADD COLUMN exclude_kana_only BOOLEAN NOT NULL DEFAULT 0"))
             if not has_column_now("tests", "wrong_only"):
@@ -357,6 +359,8 @@ def migrate_legacy_sync_schema() -> None:
                 connection.execute(text("ALTER TABLE tests ADD COLUMN reveal_fields_serialized VARCHAR NOT NULL DEFAULT 'READING_JA'"))
                 if has_column_now("tests", "reveal_field"):
                     connection.execute(text("UPDATE tests SET reveal_fields_serialized = reveal_field WHERE reveal_fields_serialized = 'READING_JA'"))
+            if has_column_now("tests", "reveal_field"):
+                connection.execute(text("UPDATE tests SET reveal_field = COALESCE(NULLIF(reveal_field, ''), 'READING_JA')"))
         connection.execute(text("""
             CREATE TABLE IF NOT EXISTS builtin_deck_catalog (
                 id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,

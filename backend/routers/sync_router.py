@@ -186,6 +186,7 @@ def _merge_tests(db: Session, user_id: int, payload: SyncPayload):
         for item in db.query(Test).filter(Test.user_id == user_id).all()
     }
     for item in payload.tests:
+        primary_reveal_field = item.reveal_fields[0] if item.reveal_fields else "READING_JA"
         target = existing.get(item.id)
         if target is None:
             db.add(
@@ -203,6 +204,7 @@ def _merge_tests(db: Session, user_id: int, payload: SyncPayload):
                     wrong_only=item.wrong_only,
                     word_order=item.word_order,
                     front_field=item.front_field,
+                    reveal_field=primary_reveal_field,
                     reveal_fields_serialized=",".join(item.reveal_fields),
                     word_ids_serialized=item.word_ids_serialized,
                     total_word_count=item.total_word_count,
@@ -223,6 +225,7 @@ def _merge_tests(db: Session, user_id: int, payload: SyncPayload):
             target.wrong_only = item.wrong_only
             target.word_order = item.word_order
             target.front_field = item.front_field
+            target.reveal_field = primary_reveal_field
             target.reveal_fields_serialized = ",".join(item.reveal_fields)
             target.word_ids_serialized = item.word_ids_serialized
             target.total_word_count = item.total_word_count

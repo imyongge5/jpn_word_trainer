@@ -166,6 +166,7 @@ class Test(Base):
     wrong_only: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     word_order: Mapped[str] = mapped_column(String, nullable=False)
     front_field: Mapped[str] = mapped_column(String, nullable=False)
+    reveal_field: Mapped[str] = mapped_column(String, nullable=False, default="READING_JA")
     reveal_fields_serialized: Mapped[str] = mapped_column(String, nullable=False, default="READING_JA")
     word_ids_serialized: Mapped[str] = mapped_column(String, nullable=False, default="")
     total_word_count: Mapped[int] = mapped_column(Integer, nullable=False)
