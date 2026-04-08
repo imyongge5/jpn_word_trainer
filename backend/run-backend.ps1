@@ -1,5 +1,5 @@
 param(
-    [string]$BindHost = "127.0.0.1",
+    [string]$BindHost = "0.0.0.0",
     [int]$Port = 8000,
     [switch]$Reload
 )
