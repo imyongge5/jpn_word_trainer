@@ -16,21 +16,39 @@ import java.util.Locale
 class JapaneseTtsController internal constructor(
     private val context: Context,
 ) {
+    private val preferredEnginePackage = "com.google.android.tts"
     private var textToSpeech: TextToSpeech? = null
     var isAvailable by mutableStateOf(false)
         private set
 
     fun bind() {
         if (textToSpeech != null) return
-        textToSpeech = TextToSpeech(context) { status ->
+        val enginePackage = context.packageManager
+            .queryIntentServices(android.content.Intent(TextToSpeech.Engine.INTENT_ACTION_TTS_SERVICE), 0)
+            .firstOrNull { it.serviceInfo.packageName == preferredEnginePackage }
+            ?.serviceInfo
+            ?.packageName
+
+        lateinit var tts: TextToSpeech
+        val listener: (Int) -> Unit = { status ->
             if (status == TextToSpeech.SUCCESS) {
-                val result = textToSpeech?.setLanguage(Locale.JAPANESE)
-                isAvailable = result != TextToSpeech.LANG_MISSING_DATA &&
-                    result != TextToSpeech.LANG_NOT_SUPPORTED
+                val localeResult = tts.setLanguage(Locale.JAPAN).takeIf {
+                    it != TextToSpeech.LANG_MISSING_DATA && it != TextToSpeech.LANG_NOT_SUPPORTED
+                } ?: tts.setLanguage(Locale.JAPANESE)
+
+                isAvailable = localeResult != TextToSpeech.LANG_MISSING_DATA &&
+                    localeResult != TextToSpeech.LANG_NOT_SUPPORTED
             } else {
                 isAvailable = false
             }
         }
+
+        tts = if (enginePackage != null) {
+            TextToSpeech(context, listener, enginePackage)
+        } else {
+            TextToSpeech(context, listener)
+        }
+        textToSpeech = tts
     }
 
     fun speak(text: String) {
