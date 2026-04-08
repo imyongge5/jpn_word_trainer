@@ -45,6 +45,7 @@ import com.mistbottle.jpnwordtrainer.data.model.ThemePreset
 import com.mistbottle.jpnwordtrainer.data.model.WordAggregateStat
 import com.mistbottle.jpnwordtrainer.data.model.WordDetailData
 import com.mistbottle.jpnwordtrainer.data.model.WordDraft
+import com.mistbottle.jpnwordtrainer.data.model.WordField
 import com.mistbottle.jpnwordtrainer.data.model.WordOrder
 
 class WordbookRepository(
@@ -176,6 +177,12 @@ class WordbookRepository(
         wordDao.getAllWordsByNewest()
     }
 
+    suspend fun getWrongWordIds(): Set<Long> = withContext(Dispatchers.IO) {
+        buildWordStats(wordDao.getAllWordsByNewest(), studyDao.getAllActiveLogsNewestFirst())
+            .filter { it.wrongCount > 0 }
+            .mapTo(linkedSetOf()) { it.word.id }
+    }
+
     suspend fun addWordToDeck(deckId: Long, draft: WordDraft): Long = withContext(Dispatchers.IO) {
         val now = System.currentTimeMillis()
         val normalizedKanji = draft.kanji.trim()
@@ -260,21 +267,28 @@ class WordbookRepository(
         deckDao.getWordsForDeck(deckId).count { it.id !in attemptedWordIds }
     }
 
+    suspend fun getExamCandidateCount(
+        deckId: Long?,
+        isAiDeck: Boolean,
+        settings: ExamSettings,
+    ): Int = withContext(Dispatchers.IO) {
+        val candidateWords = if (isAiDeck) {
+            buildAiCandidateWords(settings)
+        } else {
+            val resolvedDeckId = requireNotNull(deckId)
+            buildDeckCandidateWords(resolvedDeckId, settings)
+        }
+        candidateWords.size
+    }
+
     suspend fun createExamSession(deckId: Long?, settings: ExamSettings, useAiSelection: Boolean): Long = withContext(Dispatchers.IO) {
         expireStaleTests()
         val requestedWordCount = settings.wordCount
         val selectedWords = if (useAiSelection) {
-            buildAiWordSelection(limit = requestedWordCount)
+            buildAiWordSelection(settings = settings, limit = requestedWordCount)
         } else {
             requireNotNull(deckId)
-            val attemptedWordIds = if (settings.onlyUnseenWords) {
-                studyDao.getAllActiveLogsNewestFirst().map { it.wordId }.toSet()
-            } else {
-                emptySet()
-            }
-            val baseWords = deckDao.getWordsForDeck(deckId).let { words ->
-                if (settings.onlyUnseenWords) words.filter { it.id !in attemptedWordIds } else words
-            }
+            val baseWords = buildDeckCandidateWords(deckId, settings)
             val ordered = when (settings.wordOrder) {
                 WordOrder.SEQUENTIAL -> baseWords
                 WordOrder.RANDOM -> baseWords.shuffled(Random(System.currentTimeMillis()))
@@ -293,9 +307,11 @@ class WordbookRepository(
                 sourceDeckVersionCode = sourceDeck?.deckVersionCode,
                 isAiDeck = useAiSelection,
                 onlyUnseenWords = settings.onlyUnseenWords,
+                excludeKanaOnly = settings.excludeKanaOnly,
+                wrongOnly = settings.wrongOnly,
                 wordOrder = settings.wordOrder,
                 frontField = settings.frontField,
-                revealField = settings.revealField,
+                revealFieldsSerialized = serializeRevealFields(settings.revealFields),
                 wordIdsSerialized = selectedWords.joinToString(",") { it.id.toString() },
                 totalWordCount = selectedWords.size,
                 startedAt = now,
@@ -314,8 +330,10 @@ class WordbookRepository(
         val matchesSettings =
             test.wordOrder == settings.wordOrder &&
                 test.frontField == settings.frontField &&
-                test.revealField == settings.revealField &&
-                test.onlyUnseenWords == settings.onlyUnseenWords
+                deserializeRevealFields(test.revealFieldsSerialized) == normalizeRevealFields(settings.revealFields) &&
+                test.onlyUnseenWords == settings.onlyUnseenWords &&
+                test.excludeKanaOnly == settings.excludeKanaOnly &&
+                test.wrongOnly == settings.wrongOnly
         if (!matchesSettings) return@withContext null
         InProgressExamData(
             testId = test.id,
@@ -481,22 +499,53 @@ class WordbookRepository(
         studyDao.updateTestStatus(testId, TestStatus.DELETED.name, System.currentTimeMillis())
     }
 
-    private suspend fun buildAiWordSelection(limit: Int?): List<WordEntity> {
-        val targetSize = limit?.coerceAtLeast(1) ?: AI_DECK_SIZE
-        val words = wordDao.getAllWordsByNewest()
+    private suspend fun buildAiWordSelection(settings: ExamSettings, limit: Int?): List<WordEntity> {
+        val candidateWords = buildAiCandidateWords(settings)
+        val targetSize = limit?.coerceAtLeast(1) ?: candidateWords.size
         val logs = studyDao.getAllActiveLogsNewestFirst()
-        val stats = buildWordStats(words, logs)
-        val frequentMissed = stats.filter { it.isFrequentlyMissed }.map { it.word }
-        val newestWords = words.sortedByDescending { it.createdAt }
-        val unseenIds = words.map { it.id }.toSet() - logs.map { it.wordId }.toSet()
-        val unseenWords = words.filter { it.id in unseenIds }
-        val shuffled = words.shuffled(Random(System.currentTimeMillis()))
+        val stats = buildWordStats(candidateWords, logs)
+        val frequentMissed = stats.filter { it.wrongCount > 0 }.sortedByDescending { it.wrongCount }.map { it.word }
+        val newestWords = candidateWords.sortedByDescending { it.createdAt }
+        val seenWordIds = logs.map { it.wordId }.toSet()
+        val unseenWords = candidateWords.filter { it.id !in seenWordIds }
+        val shuffled = candidateWords.shuffled(Random(System.currentTimeMillis()))
         return buildList {
             addUnique(frequentMissed, targetSize)
             addUnique(newestWords, targetSize)
             addUnique(unseenWords, targetSize)
             addUnique(shuffled, targetSize)
         }.take(targetSize)
+    }
+
+    private suspend fun buildAiCandidateWords(settings: ExamSettings): List<WordEntity> {
+        val words = wordDao.getAllWordsByNewest()
+        val logs = studyDao.getAllActiveLogsNewestFirst()
+        val wrongWordIds = buildWordStats(words, logs)
+            .filter { it.wrongCount > 0 }
+            .mapTo(hashSetOf()) { it.word.id }
+        val seenWordIds = logs.map { it.wordId }.toSet()
+        return words.filter { word ->
+            (!settings.excludeKanaOnly || !word.isKanaOnly) &&
+                (!settings.onlyUnseenWords || word.id !in seenWordIds) &&
+                (!settings.wrongOnly || word.id in wrongWordIds)
+        }
+    }
+
+    private suspend fun buildDeckCandidateWords(
+        deckId: Long,
+        settings: ExamSettings,
+    ): List<WordEntity> {
+        val words = deckDao.getWordsForDeck(deckId)
+        val logs = studyDao.getAllActiveLogsNewestFirst()
+        val seenWordIds = logs.map { it.wordId }.toSet()
+        val wrongWordIds = buildWordStats(words, logs)
+            .filter { it.wrongCount > 0 }
+            .mapTo(hashSetOf()) { it.word.id }
+        return words.filter { word ->
+            (!settings.onlyUnseenWords || word.id !in seenWordIds) &&
+                (!settings.excludeKanaOnly || !word.isKanaOnly) &&
+                (!settings.wrongOnly || word.id in wrongWordIds)
+        }
     }
 
     private fun MutableList<WordEntity>.addUnique(words: List<WordEntity>, limit: Int) {
@@ -722,6 +771,23 @@ class WordbookRepository(
     private fun parseWordIds(serialized: String): List<Long> =
         serialized.split(",").mapNotNull { it.toLongOrNull() }
 
+    private fun serializeRevealFields(fields: Set<WordField>): String =
+        normalizeRevealFields(fields).joinToString(",") { it.name }
+
+    private fun deserializeRevealFields(serialized: String): Set<WordField> =
+        serialized
+            .split(",")
+            .mapNotNull { raw ->
+                raw.trim().takeIf { it.isNotEmpty() }?.let {
+                    runCatching { WordField.valueOf(it) }.getOrNull()
+                }
+            }
+            .toSet()
+            .let(::normalizeRevealFields)
+
+    private fun normalizeRevealFields(fields: Set<WordField>): Set<WordField> =
+        if (fields.isEmpty()) setOf(WordField.READING_JA) else fields.toSet()
+
     private suspend fun repairLegacySeedWords(allExistingWords: MutableList<WordEntity>) {
         val legacyWord = allExistingWords.firstOrNull {
             it.readingJa == "うまれる" &&
@@ -765,7 +831,6 @@ class WordbookRepository(
     )
 
     private companion object {
-        private const val AI_DECK_SIZE = 30
         private const val BUILTIN_DECK_INITIAL_VERSION = 1
         private const val SEED_KEY = "seed_v6"
         private const val SEEDED_VALUE = "done"

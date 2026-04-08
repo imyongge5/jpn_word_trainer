@@ -89,9 +89,11 @@ data class WordDraft(
 data class ExamSettings(
     val wordOrder: WordOrder = WordOrder.SEQUENTIAL,
     val frontField: WordField = WordField.KANJI,
-    val revealField: WordField = WordField.READING_JA,
+    val revealFields: Set<WordField> = setOf(WordField.READING_JA),
     val wordCount: Int? = null,
     val onlyUnseenWords: Boolean = false,
+    val excludeKanaOnly: Boolean = false,
+    val wrongOnly: Boolean = false,
 )
 
 data class ExamSessionData(

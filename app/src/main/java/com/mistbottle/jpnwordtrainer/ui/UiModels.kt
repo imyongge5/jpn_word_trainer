@@ -28,6 +28,7 @@ data class DeckDetailUiState(
     val isLoading: Boolean = true,
     val deck: DeckEntity? = null,
     val words: List<WordEntity> = emptyList(),
+    val wrongWordIds: Set<Long> = emptySet(),
     val builtinUpdateInfo: BuiltinDeckUpdateInfo? = null,
     val isUpdatingBuiltinDeck: Boolean = false,
     val errorMessage: String? = null,
@@ -50,6 +51,7 @@ data class ExamSetupUiState(
     val inProgressExam: InProgressExamData? = null,
     val totalWordCount: Int = 0,
     val unseenWordCount: Int = 0,
+    val wrongWordCount: Int = 0,
     val availableWordCount: Int = 0,
     val selectedWordCountOption: ExamWordCountOption = ExamWordCountOption.ALL,
     val customWordCountInput: String = "",
@@ -122,6 +124,7 @@ data class SettingsUiState(
 data class AllWordsUiState(
     val isLoading: Boolean = true,
     val words: List<WordEntity> = emptyList(),
+    val wrongWordIds: Set<Long> = emptySet(),
     val decks: List<DeckWithCount> = emptyList(),
     val deckWordIds: Map<Long, Set<Long>> = emptyMap(),
 )

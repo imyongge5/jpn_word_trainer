@@ -21,6 +21,7 @@ class AppContainer(context: Context) {
         .addMigrations(MIGRATION_4_5)
         .addMigrations(MIGRATION_5_6)
         .addMigrations(MIGRATION_6_7)
+        .addMigrations(MIGRATION_7_8)
         .build()
 
     val repository: WordbookRepository = WordbookRepository(database = database)
@@ -268,6 +269,15 @@ class AppContainer(context: Context) {
                     )
                     """.trimIndent(),
                 )
+            }
+        }
+
+        val MIGRATION_7_8 = object : Migration(7, 8) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE tests ADD COLUMN revealFieldsSerialized TEXT NOT NULL DEFAULT 'READING_JA'")
+                db.execSQL("ALTER TABLE tests ADD COLUMN excludeKanaOnly INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE tests ADD COLUMN wrongOnly INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("UPDATE tests SET revealFieldsSerialized = revealField")
             }
         }
     }

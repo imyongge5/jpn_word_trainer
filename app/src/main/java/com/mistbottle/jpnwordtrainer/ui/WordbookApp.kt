@@ -94,6 +94,7 @@ import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material.icons.outlined.QueryStats
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material.icons.outlined.VolumeUp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.activity.compose.BackHandler
@@ -106,6 +107,7 @@ import androidx.navigation.navArgument
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
 import com.mistbottle.jpnwordtrainer.data.local.entity.WordEntity
+import com.mistbottle.jpnwordtrainer.data.local.entity.TestEntity
 import com.mistbottle.jpnwordtrainer.data.model.DeckWithCount
 import com.mistbottle.jpnwordtrainer.data.model.GlobalDailyStat
 import com.mistbottle.jpnwordtrainer.data.model.ResultInsight
@@ -171,6 +173,11 @@ fun WordbookApp(
                     onOpenGlobalStats = { navController.navigate("global_stats") },
                     onOpenSettings = { navController.navigate("settings") },
                 )
+                /* FilterCheckboxRow(
+                    label = "누적 오답만 보기",
+                    checked = showWrongOnly,
+                    onCheckedChange = { showWrongOnly = it },
+                ) */
             }
             composable("settings") {
                 val viewModel: SettingsViewModel = viewModel(
@@ -326,7 +333,7 @@ fun WordbookApp(
                     key = "setup-${deckId ?: 0}-$isAiDeck",
                     factory = WordbookViewModelFactory { ExamSetupViewModel(repository, deckId, isAiDeck) },
                 )
-                ExamSetupRoute(
+                ExamSetupRouteV2(
                     viewModel = viewModel,
                     onBack = { navController.popBackStack() },
                     onContinueExam = { sessionId ->
@@ -350,7 +357,7 @@ fun WordbookApp(
                     key = "exam-$sessionId",
                     factory = WordbookViewModelFactory { ExamViewModel(repository, syncRepository, sessionId) },
                 )
-                ExamRoute(
+                ExamRouteV2(
                     viewModel = viewModel,
                     onBack = { navController.popBackStack() },
                     onFinished = {
@@ -624,7 +631,9 @@ private fun DeckRoute(
     var searchQuery by rememberSaveable { mutableStateOf("") }
     var selectedPartOfSpeech by rememberSaveable { mutableStateOf("전체") }
     var selectedTag by rememberSaveable { mutableStateOf("전체") }
+    var showWrongOnly by rememberSaveable { mutableStateOf(false) }
     var showFilterSheet by rememberSaveable { mutableStateOf(false) }
+    val ttsController = rememberJapaneseTtsController()
 
     if (showFilterSheet) {
         val partOfSpeechOptions = listOf("전체") + uiState.words
@@ -660,6 +669,11 @@ private fun DeckRoute(
                     selected = selectedTag,
                     onSelect = { selectedTag = it },
                 )
+                FilterCheckboxRow(
+                    label = "누적 오답만 보기",
+                    checked = showWrongOnly,
+                    onCheckedChange = { showWrongOnly = it },
+                )
             }
         }
     }
@@ -678,13 +692,16 @@ private fun DeckRoute(
             searchQuery,
             selectedPartOfSpeech,
             selectedTag,
+            showWrongOnly,
+            uiState.wrongWordIds,
         ) {
             derivedStateOf {
                 uiState.words.filter { word ->
                     val matchesQuery = searchQuery.isBlank() || word.matchesSearchQuery(searchQuery)
                     val matchesPartOfSpeech = selectedPartOfSpeech == "전체" || word.partOfSpeech == selectedPartOfSpeech
                     val matchesTag = selectedTag == "전체" || word.tag == selectedTag
-                    matchesQuery && matchesPartOfSpeech && matchesTag
+                    val matchesWrongOnly = !showWrongOnly || word.id in uiState.wrongWordIds
+                    matchesQuery && matchesPartOfSpeech && matchesTag && matchesWrongOnly
                 }
             }
         }
@@ -762,6 +779,7 @@ private fun DeckRoute(
                     totalCount = uiState.words.size,
                     selectedPartOfSpeech = selectedPartOfSpeech,
                     selectedTag = selectedTag,
+                    wrongOnly = showWrongOnly,
                 ),
                 style = MaterialTheme.typography.labelMedium,
                 color = InkMuted,
@@ -809,6 +827,7 @@ private fun DeckRoute(
                             showMeaningKo = showMeaningKo,
                             showMeaningJa = showMeaningJa,
                             allWords = filteredWords,
+                            onSpeak = { ttsController.speak(it.readingJa.ifBlank { it.kanji }) },
                             onClick = { onOpenWord(word.id) },
                         )
                     }
@@ -834,7 +853,9 @@ private fun AllWordsRoute(
     var selectedDeckId by rememberSaveable { mutableStateOf(-1L) }
     var selectedPartOfSpeech by rememberSaveable { mutableStateOf("전체") }
     var selectedTag by rememberSaveable { mutableStateOf("전체") }
+    var showWrongOnly by rememberSaveable { mutableStateOf(false) }
     var showFilterSheet by rememberSaveable { mutableStateOf(false) }
+    val ttsController = rememberJapaneseTtsController()
 
     val deckOptions = remember(uiState.decks) {
         listOf(-1L to "전체 단어장") + uiState.decks.map { it.id to it.name }
@@ -864,13 +885,16 @@ private fun AllWordsRoute(
         searchQuery,
         selectedPartOfSpeech,
         selectedTag,
+        showWrongOnly,
+        uiState.wrongWordIds,
     ) {
         derivedStateOf {
             deckFilteredWords.filter { word ->
                 val matchesQuery = searchQuery.isBlank() || word.matchesSearchQuery(searchQuery)
                 val matchesPartOfSpeech = selectedPartOfSpeech == "전체" || word.partOfSpeech == selectedPartOfSpeech
                 val matchesTag = selectedTag == "전체" || word.tag == selectedTag
-                matchesQuery && matchesPartOfSpeech && matchesTag
+                val matchesWrongOnly = !showWrongOnly || word.id in uiState.wrongWordIds
+                matchesQuery && matchesPartOfSpeech && matchesTag && matchesWrongOnly
             }
         }
     }
@@ -904,6 +928,11 @@ private fun AllWordsRoute(
                     options = tagOptions,
                     selected = selectedTag,
                     onSelect = { selectedTag = it },
+                )
+                FilterCheckboxRow(
+                    label = "누적 오답만 보기",
+                    checked = showWrongOnly,
+                    onCheckedChange = { showWrongOnly = it },
                 )
             }
         }
@@ -941,6 +970,7 @@ private fun AllWordsRoute(
                     selectedDeckName = deckOptions.firstOrNull { it.first == selectedDeckId }?.second ?: "전체 단어장",
                     selectedPartOfSpeech = selectedPartOfSpeech,
                     selectedTag = selectedTag,
+                    wrongOnly = showWrongOnly,
                 ),
                 style = MaterialTheme.typography.labelMedium,
                 color = InkMuted,
@@ -972,6 +1002,7 @@ private fun AllWordsRoute(
                             showMeaningKo = showMeaningKo,
                             showMeaningJa = showMeaningJa,
                             allWords = filteredWords,
+                            onSpeak = { ttsController.speak(it.readingJa.ifBlank { it.kanji }) },
                             onClick = { onOpenWord(word.id) },
                         )
                     }
@@ -1055,6 +1086,7 @@ private fun WordDetailRoute(
     onOpenWord: (Long) -> Unit,
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val ttsController = rememberJapaneseTtsController()
     var showDeckDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(uiState.saveToDeckSuccess) {
@@ -1125,6 +1157,8 @@ private fun WordDetailRoute(
             WordDictionaryHeader(
                 word = word,
                 showReadingKo = true,
+                onSpeak = { ttsController.speak(word.readingJa.ifBlank { word.kanji }) },
+                ttsAvailable = ttsController.isAvailable,
             )
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(
@@ -1455,6 +1489,304 @@ private fun ExamRoute(
                                     showRuby = sessionData.session.revealField == WordField.KANJI,
                                     alignCenter = true,
                                     rubyColor = Color(0xFFE5807A),
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+            Spacer(modifier = Modifier.weight(1f))
+            if (uiState.revealed) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    OutlinedButton(
+                        onClick = {
+                            scope.launch {
+                                if (viewModel.answer(false)) onFinished()
+                            }
+                        },
+                        modifier = Modifier.weight(1f),
+                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 12.dp),
+                    ) {
+                        Text(
+                            text = "틀렸어요",
+                            style = MaterialTheme.typography.titleMedium,
+                        )
+                    }
+                    Button(
+                        onClick = {
+                            scope.launch {
+                                if (viewModel.answer(true)) onFinished()
+                            }
+                        },
+                        modifier = Modifier.weight(1f),
+                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 12.dp),
+                    ) {
+                        Text(
+                            text = "맞았어요",
+                            style = MaterialTheme.typography.titleMedium,
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ExamSetupRouteV2(
+    viewModel: ExamSetupViewModel,
+    onBack: () -> Unit,
+    onContinueExam: (Long) -> Unit,
+    onStartExam: (Long) -> Unit,
+) {
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val scope = rememberCoroutineScope()
+
+    ScreenContainer(
+        title = if (uiState.isAiDeck) "AI 단어 시험 설정" else "시험 설정",
+        onBack = onBack,
+    ) {
+        if (uiState.isLoading) {
+            LoadingView()
+            return@ScreenContainer
+        }
+
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            Card(
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = PaperElevated),
+                border = BorderStroke(1.dp, DividerSoft),
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 10.dp),
+                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                ) {
+                    Text(
+                        text = uiState.deck?.name ?: "AI 단어장",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Text(
+                        text = if (uiState.isAiDeck) {
+                            "누적 오답과 새 단어를 우선 섞어서 원하는 개수만큼 시험을 구성해요."
+                        } else {
+                            "출제 방식과 정답 공개값을 고른 뒤 바로 시험을 시작할 수 있어요."
+                        },
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = InkSoft,
+                    )
+                }
+            }
+
+            uiState.inProgressExam?.let { inProgress ->
+                Card(
+                    shape = RoundedCornerShape(20.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 10.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        Text(
+                            text = "진행 중인 시험이 있어요.",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                        Text(
+                            text = "${inProgress.deckName} · ${inProgress.answeredCount} / ${inProgress.totalCount}",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = InkSoft,
+                        )
+                        AppSecondaryButton(
+                            text = "이어하기",
+                            onClick = { onContinueExam(inProgress.sessionId) },
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
+                }
+            }
+
+            SettingGroup(
+                title = "출제 순서",
+                selectedLabel = orderLabel(uiState.settings.wordOrder),
+                options = WordOrder.entries.map { it to orderLabel(it) },
+                current = uiState.settings.wordOrder,
+                onSelect = viewModel::setWordOrder,
+            )
+            ExamBooleanOptionGroup(
+                title = "출제 범위",
+                description = if (uiState.settings.onlyUnseenWords) {
+                    "아직 시험 기록이 없는 단어 ${uiState.unseenWordCount}개만 출제해요."
+                } else {
+                    "현재 후보 단어 ${uiState.availableWordCount}개에서 출제해요."
+                },
+                checked = uiState.settings.onlyUnseenWords,
+                label = "지금까지 안 본 단어만 출제",
+                onCheckedChange = viewModel::setOnlyUnseenWords,
+            )
+            ExamBooleanOptionGroup(
+                title = "단어 제외",
+                description = "히라가나나 가타카나로만 이루어진 단어를 제외해요.",
+                checked = uiState.settings.excludeKanaOnly,
+                label = "가나-only 단어 제외",
+                onCheckedChange = viewModel::setExcludeKanaOnly,
+            )
+            ExamBooleanOptionGroup(
+                title = "오답 우선",
+                description = if (uiState.settings.wrongOnly) {
+                    "누적 오답 단어 ${uiState.wrongWordCount}개만 대상으로 출제해요."
+                } else {
+                    "누적 오답 단어 ${uiState.wrongWordCount}개를 따로 모아서 볼 수 있어요."
+                },
+                checked = uiState.settings.wrongOnly,
+                label = "누적 오답만 보기",
+                onCheckedChange = viewModel::setWrongOnly,
+            )
+            ExamWordCountGroup(
+                selectedOption = uiState.selectedWordCountOption,
+                selectedLabel = examWordCountLabel(
+                    option = uiState.selectedWordCountOption,
+                    customInput = uiState.customWordCountInput,
+                    availableWordCount = uiState.availableWordCount,
+                ),
+                customWordCountInput = uiState.customWordCountInput,
+                availableWordCount = uiState.availableWordCount,
+                onSelectOption = viewModel::setWordCountOption,
+                onCustomInputChanged = viewModel::setCustomWordCountInput,
+            )
+            SettingGroup(
+                title = "앞면 표시값",
+                selectedLabel = fieldLabel(uiState.settings.frontField),
+                options = WordField.entries.map { it to fieldLabel(it) },
+                current = uiState.settings.frontField,
+                onSelect = viewModel::setFrontField,
+            )
+            ExamRevealFieldsGroup(
+                selectedFields = uiState.settings.revealFields,
+                onToggle = viewModel::toggleRevealField,
+            )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                uiState.inProgressExam?.let { inProgress ->
+                    AppSecondaryButton(
+                        text = "이어하기",
+                        onClick = { onContinueExam(inProgress.sessionId) },
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+                AppPrimaryButton(
+                    text = if (uiState.inProgressExam == null) "시험 시작" else "새 시험 시작",
+                    onClick = {
+                        scope.launch {
+                            onStartExam(viewModel.startExam())
+                        }
+                    },
+                    modifier = if (uiState.inProgressExam == null) Modifier.fillMaxWidth() else Modifier.weight(1f),
+                    enabled = uiState.canStart,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ExamRouteV2(
+    viewModel: ExamViewModel,
+    onBack: () -> Unit,
+    onFinished: () -> Unit,
+) {
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val scope = rememberCoroutineScope()
+    val ttsController = rememberJapaneseTtsController()
+
+    ScreenContainer(title = "복기 시험", onBack = onBack) {
+        if (uiState.isLoading || uiState.sessionData == null) {
+            LoadingView()
+            return@ScreenContainer
+        }
+        val sessionData = uiState.sessionData ?: return@ScreenContainer
+        if (sessionData.words.isEmpty()) {
+            EmptyHint("출제된 단어가 없어요.")
+            return@ScreenContainer
+        }
+
+        val revealFields = deserializeRevealFields(sessionData.session.revealFieldsSerialized)
+        val showExamRuby = WordField.READING_JA !in revealFields && WordField.READING_KO !in revealFields
+        val currentIndex = sessionData.answersCount
+        val currentWord = sessionData.words[currentIndex]
+
+        Column(
+            modifier = Modifier.fillMaxSize(),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            Text("${currentIndex + 1} / ${sessionData.words.size}", style = MaterialTheme.typography.titleMedium)
+            Text(
+                "카드를 터치해 정답을 확인하세요.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = InkSoft,
+            )
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(28.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(340.dp)
+                        .padding(horizontal = 22.dp, vertical = 20.dp)
+                        .clickable(enabled = !uiState.revealed) { viewModel.reveal() },
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center,
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(18.dp),
+                    ) {
+                        RubyFieldText(
+                            word = currentWord,
+                            field = sessionData.session.frontField,
+                            mainStyle = MaterialTheme.typography.headlineSmall,
+                            rubyStyle = MaterialTheme.typography.labelMedium,
+                            showRuby = showExamRuby,
+                            alignCenter = true,
+                        )
+                        if (uiState.revealed) {
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(10.dp),
+                            ) {
+                                revealFields.forEach { field ->
+                                    RubyFieldText(
+                                        word = currentWord,
+                                        field = field,
+                                        mainStyle = MaterialTheme.typography.titleLarge,
+                                        rubyStyle = MaterialTheme.typography.labelMedium,
+                                        showRuby = field == WordField.KANJI,
+                                        alignCenter = true,
+                                        rubyColor = Color(0xFFE5807A),
+                                    )
+                                }
+                                SpeakIconButton(
+                                    enabled = ttsController.isAvailable,
+                                    onClick = { ttsController.speak(currentWord.readingJa.ifBlank { currentWord.kanji }) },
                                 )
                             }
                         }
@@ -2924,6 +3256,7 @@ private fun WordRow(
     showMeaningKo: Boolean,
     showMeaningJa: Boolean,
     allWords: List<WordEntity>,
+    onSpeak: (WordEntity) -> Unit,
     onClick: () -> Unit,
 ) {
     val hasMeaningColumn = showMeaningKo || showMeaningJa
@@ -3116,35 +3449,44 @@ private fun WordRow(
                     }
                 }
             }
-            if (showPartOfSpeech) {
-                Column(
-                    modifier = Modifier
-                        .width(28.dp)
-                        .fillMaxHeight()
-                        .clip(RoundedCornerShape(999.dp))
-                        .background(partOfSpeechAccent.copy(alpha = 0.14f))
-                        .padding(vertical = 8.dp, horizontal = 4.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center,
-                ) {
-                    Spacer(
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                SpeakIconButton(
+                    enabled = true,
+                    onClick = { onSpeak(word) },
+                )
+                if (showPartOfSpeech) {
+                    Column(
                         modifier = Modifier
-                            .width(4.dp)
-                            .height(26.dp)
+                            .width(28.dp)
+                            .fillMaxHeight()
                             .clip(RoundedCornerShape(999.dp))
-                            .background(partOfSpeechAccent),
-                    )
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Text(
-                        text = partOfSpeechVerticalLabel(partOfSpeechLabel),
-                        style = MaterialTheme.typography.labelSmall.copy(
-                            fontSize = 10.sp,
-                            lineHeight = 10.sp,
-                            fontWeight = FontWeight.SemiBold,
-                        ),
-                        color = partOfSpeechAccent,
-                        textAlign = TextAlign.Center,
-                    )
+                            .background(partOfSpeechAccent.copy(alpha = 0.14f))
+                            .padding(vertical = 8.dp, horizontal = 4.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center,
+                    ) {
+                        Spacer(
+                            modifier = Modifier
+                                .width(4.dp)
+                                .height(26.dp)
+                                .clip(RoundedCornerShape(999.dp))
+                                .background(partOfSpeechAccent),
+                        )
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            text = partOfSpeechVerticalLabel(partOfSpeechLabel),
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                fontSize = 10.sp,
+                                lineHeight = 10.sp,
+                                fontWeight = FontWeight.SemiBold,
+                            ),
+                            color = partOfSpeechAccent,
+                            textAlign = TextAlign.Center,
+                        )
+                    }
                 }
             }
         }
@@ -3155,6 +3497,8 @@ private fun WordRow(
 private fun WordDictionaryHeader(
     word: WordEntity,
     showReadingKo: Boolean,
+    onSpeak: () -> Unit,
+    ttsAvailable: Boolean,
 ) {
     Card(
         shape = RoundedCornerShape(24.dp),
@@ -3176,6 +3520,10 @@ private fun WordDictionaryHeader(
                     text = word.partOfSpeech.ifBlank { word.tag.ifBlank { "단어" } },
                     style = MaterialTheme.typography.labelMedium,
                     color = PrimaryBlue,
+                )
+                SpeakIconButton(
+                    enabled = ttsAvailable,
+                    onClick = onSpeak,
                 )
                 RubyFieldText(
                     word = word,
@@ -3979,15 +4327,107 @@ private fun OptionCheckboxRow(
     }
 }
 
+@Composable
+private fun FilterCheckboxRow(
+    label: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+) {
+    OptionCheckboxRow(
+        label = label,
+        checked = checked,
+        onCheckedChange = onCheckedChange,
+    )
+}
+
+@Composable
+private fun ExamRevealFieldsGroup(
+    selectedFields: Set<WordField>,
+    onToggle: (WordField) -> Unit,
+) {
+    Card(
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = PaperElevated),
+        border = BorderStroke(1.dp, DividerSoft),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 10.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            Text(
+                text = "정답 공개값",
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold,
+            )
+            Text(
+                text = selectedFields.joinToString(", ") { fieldLabel(it) },
+                style = MaterialTheme.typography.bodySmall,
+                color = InkMuted,
+            )
+            WordField.entries.chunked(2).forEach { rowFields ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    rowFields.forEach { field ->
+                        Row(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clip(RoundedCornerShape(12.dp))
+                                .clickable { onToggle(field) }
+                                .padding(horizontal = 1.dp, vertical = 0.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {
+                                Checkbox(
+                                    checked = field in selectedFields,
+                                    onCheckedChange = { onToggle(field) },
+                                )
+                            }
+                            Text(fieldLabel(field), style = MaterialTheme.typography.bodyMedium)
+                        }
+                    }
+                    if (rowFields.size == 1) {
+                        Spacer(modifier = Modifier.weight(1f))
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SpeakIconButton(
+    enabled: Boolean,
+    onClick: () -> Unit,
+) {
+    FilledTonalIconButton(
+        onClick = onClick,
+        enabled = enabled,
+        modifier = Modifier
+            .width(34.dp)
+            .height(34.dp),
+    ) {
+        Icon(
+            imageVector = Icons.Outlined.VolumeUp,
+            contentDescription = "발음 듣기",
+        )
+    }
+}
+
 private fun buildFilterSummary(
     filteredCount: Int,
     totalCount: Int,
     selectedPartOfSpeech: String,
     selectedTag: String,
+    wrongOnly: Boolean,
 ): String {
     val filters = buildList {
         if (selectedPartOfSpeech != "전체") add("품사 $selectedPartOfSpeech")
         if (selectedTag != "전체") add("태그 $selectedTag")
+        if (wrongOnly) add("누적 오답")
     }
     return if (filters.isEmpty()) {
         "표시 $filteredCount / 전체 $totalCount"
@@ -4002,11 +4442,13 @@ private fun buildAllWordsFilterSummary(
     selectedDeckName: String,
     selectedPartOfSpeech: String,
     selectedTag: String,
+    wrongOnly: Boolean,
 ): String {
     val filters = buildList {
         if (selectedDeckName != "전체 단어장") add("단어장 $selectedDeckName")
         if (selectedPartOfSpeech != "전체") add("품사 $selectedPartOfSpeech")
         if (selectedTag != "전체") add("태그 $selectedTag")
+        if (wrongOnly) add("누적 오답")
     }
     return if (filters.isEmpty()) {
         "표시 $filteredCount / 전체 $totalCount"
@@ -4045,6 +4487,19 @@ private fun examWordCountLabel(
     ExamWordCountOption.CUSTOM -> if (customInput.isBlank()) "직접입력" else "${customInput}개"
     else -> "${minOf(option.presetCount ?: availableWordCount, availableWordCount)}개"
 }
+
+private val com.mistbottle.jpnwordtrainer.data.model.ExamSettings.revealField: WordField
+    get() = revealFields.firstOrNull() ?: WordField.READING_JA
+
+private val TestEntity.revealField: WordField
+    get() = deserializeRevealFields(revealFieldsSerialized).firstOrNull() ?: WordField.READING_JA
+
+private fun deserializeRevealFields(serialized: String): Set<WordField> =
+    serialized
+        .split(",")
+        .mapNotNull { token -> WordField.entries.firstOrNull { it.name == token.trim() } }
+        .toSet()
+        .ifEmpty { setOf(WordField.READING_JA) }
 
 private fun fieldLabel(field: WordField): String = when (field) {
     WordField.KANJI -> "한자"

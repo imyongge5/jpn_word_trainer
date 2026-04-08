@@ -325,9 +325,11 @@ class SyncRepository(
         sourceDeckVersionCode = entity.sourceDeckVersionCode,
         isAiDeck = entity.isAiDeck,
         onlyUnseenWords = entity.onlyUnseenWords,
+        excludeKanaOnly = entity.excludeKanaOnly,
+        wrongOnly = entity.wrongOnly,
         wordOrder = entity.wordOrder.name,
         frontField = entity.frontField.name,
-        revealField = entity.revealField.name,
+        revealFields = deserializeRevealFields(entity.revealFieldsSerialized).map { it.name },
         wordIdsSerialized = entity.wordIdsSerialized,
         totalWordCount = entity.totalWordCount,
         startedAt = entity.startedAt,
@@ -416,14 +418,33 @@ class SyncRepository(
         sourceDeckVersionCode = dto.sourceDeckVersionCode,
         isAiDeck = dto.isAiDeck,
         onlyUnseenWords = dto.onlyUnseenWords,
+        excludeKanaOnly = dto.excludeKanaOnly,
+        wrongOnly = dto.wrongOnly,
         wordOrder = WordOrder.valueOf(dto.wordOrder),
         frontField = WordField.valueOf(dto.frontField),
-        revealField = WordField.valueOf(dto.revealField),
+        revealFieldsSerialized = serializeRevealFields(dto.revealFields.map(WordField::valueOf).toSet()),
         wordIdsSerialized = dto.wordIdsSerialized,
         totalWordCount = dto.totalWordCount,
         startedAt = dto.startedAt,
         changedAt = dto.changedAt,
     )
+
+    private fun serializeRevealFields(fields: Set<WordField>): String =
+        if (fields.isEmpty()) {
+            WordField.READING_JA.name
+        } else {
+            fields.joinToString(",") { it.name }
+        }
+
+    private fun deserializeRevealFields(serialized: String): Set<WordField> =
+        serialized.split(",")
+            .mapNotNull { raw ->
+                raw.trim().takeIf { it.isNotEmpty() }?.let {
+                    runCatching { WordField.valueOf(it) }.getOrNull()
+                }
+            }
+            .toSet()
+            .ifEmpty { setOf(WordField.READING_JA) }
 
     private fun dtoToLog(dto: TestWordLogSyncDto) = TestWordLogEntity(
         id = dto.id,
