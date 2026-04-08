@@ -1,6 +1,6 @@
 from typing import List, Optional
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class RegisterRequest(BaseModel):
@@ -85,9 +85,11 @@ class TestSchema(BaseModel):
     source_deck_version_code: Optional[int] = None
     is_ai_deck: bool
     only_unseen_words: bool = False
+    exclude_kana_only: bool = False
+    wrong_only: bool = False
     word_order: str
     front_field: str
-    reveal_field: str
+    reveal_fields: List[str] = Field(default_factory=lambda: ["READING_JA"])
     word_ids_serialized: str
     total_word_count: int
     started_at: int

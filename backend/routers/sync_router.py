@@ -199,9 +199,11 @@ def _merge_tests(db: Session, user_id: int, payload: SyncPayload):
                     source_deck_version_code=item.source_deck_version_code,
                     is_ai_deck=item.is_ai_deck,
                     only_unseen_words=item.only_unseen_words,
+                    exclude_kana_only=item.exclude_kana_only,
+                    wrong_only=item.wrong_only,
                     word_order=item.word_order,
                     front_field=item.front_field,
-                    reveal_field=item.reveal_field,
+                    reveal_fields_serialized=",".join(item.reveal_fields),
                     word_ids_serialized=item.word_ids_serialized,
                     total_word_count=item.total_word_count,
                     started_at=item.started_at,
@@ -217,9 +219,11 @@ def _merge_tests(db: Session, user_id: int, payload: SyncPayload):
             target.source_deck_version_code = item.source_deck_version_code or target.source_deck_version_code
             target.is_ai_deck = item.is_ai_deck
             target.only_unseen_words = item.only_unseen_words
+            target.exclude_kana_only = item.exclude_kana_only
+            target.wrong_only = item.wrong_only
             target.word_order = item.word_order
             target.front_field = item.front_field
-            target.reveal_field = item.reveal_field
+            target.reveal_fields_serialized = ",".join(item.reveal_fields)
             target.word_ids_serialized = item.word_ids_serialized
             target.total_word_count = item.total_word_count
             target.started_at = item.started_at
@@ -444,9 +448,11 @@ def pull_data(
                 source_deck_version_code=item.source_deck_version_code if protocol_mode != "LEGACY_V1" else None,
                 is_ai_deck=item.is_ai_deck,
                 only_unseen_words=item.only_unseen_words,
+                exclude_kana_only=item.exclude_kana_only,
+                wrong_only=item.wrong_only,
                 word_order=item.word_order,
                 front_field=item.front_field,
-                reveal_field=item.reveal_field,
+                reveal_fields=[field for field in item.reveal_fields_serialized.split(",") if field],
                 word_ids_serialized=item.word_ids_serialized,
                 total_word_count=item.total_word_count,
                 started_at=item.started_at,

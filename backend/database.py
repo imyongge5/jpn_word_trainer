@@ -122,9 +122,11 @@ def migrate_legacy_sync_schema() -> None:
                 deck_name_snapshot VARCHAR NOT NULL DEFAULT '',
                 is_ai_deck BOOLEAN NOT NULL DEFAULT 0,
                 only_unseen_words BOOLEAN NOT NULL DEFAULT 0,
+                exclude_kana_only BOOLEAN NOT NULL DEFAULT 0,
+                wrong_only BOOLEAN NOT NULL DEFAULT 0,
                 word_order VARCHAR NOT NULL,
                 front_field VARCHAR NOT NULL,
-                reveal_field VARCHAR NOT NULL,
+                reveal_fields_serialized VARCHAR NOT NULL DEFAULT 'READING_JA',
                 word_ids_serialized VARCHAR NOT NULL DEFAULT '',
                 total_word_count INTEGER NOT NULL,
                 started_at BIGINT NOT NULL,
@@ -204,9 +206,10 @@ def migrate_legacy_sync_schema() -> None:
                 connection.execute(text("""
                 INSERT INTO tests (
                     client_id, user_id, status, deck_id, deck_name_snapshot, is_ai_deck, only_unseen_words,
-                    word_order, front_field, reveal_field, word_ids_serialized, total_word_count, started_at, changed_at
+                    exclude_kana_only, wrong_only, word_order, front_field, reveal_fields_serialized,
+                    word_ids_serialized, total_word_count, started_at, changed_at
                 )
-                SELECT id, user_id, status, deck_id, deck_name_snapshot, is_ai_deck, 0,
+                SELECT id, user_id, status, deck_id, deck_name_snapshot, is_ai_deck, 0, 0, 0,
                        word_order, front_field, reveal_field, word_ids_serialized, total_word_count, started_at, changed_at
                 FROM tests_legacy
             """))
@@ -342,8 +345,18 @@ def migrate_legacy_sync_schema() -> None:
                 WHEN UPPER(TRIM(stable_key)) LIKE 'JLPT N_' THEN REPLACE(UPPER(TRIM(stable_key)), 'JLPT ', '')
                 WHEN UPPER(TRIM(stable_key)) IN ('N1', 'N2', 'N3', 'N4', 'N5') THEN UPPER(TRIM(stable_key))
                 ELSE stable_key
-            END
-        """))
+                END
+            """))
+
+        if "tests" in existing_tables:
+            if not has_column_now("tests", "exclude_kana_only"):
+                connection.execute(text("ALTER TABLE tests ADD COLUMN exclude_kana_only BOOLEAN NOT NULL DEFAULT 0"))
+            if not has_column_now("tests", "wrong_only"):
+                connection.execute(text("ALTER TABLE tests ADD COLUMN wrong_only BOOLEAN NOT NULL DEFAULT 0"))
+            if not has_column_now("tests", "reveal_fields_serialized"):
+                connection.execute(text("ALTER TABLE tests ADD COLUMN reveal_fields_serialized VARCHAR NOT NULL DEFAULT 'READING_JA'"))
+                if has_column_now("tests", "reveal_field"):
+                    connection.execute(text("UPDATE tests SET reveal_fields_serialized = reveal_field WHERE reveal_fields_serialized = 'READING_JA'"))
         connection.execute(text("""
             CREATE TABLE IF NOT EXISTS builtin_deck_catalog (
                 id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
