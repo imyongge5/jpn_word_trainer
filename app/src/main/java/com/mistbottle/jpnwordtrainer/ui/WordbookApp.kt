@@ -633,6 +633,7 @@ private fun DeckRoute(
     var selectedTag by rememberSaveable { mutableStateOf("전체") }
     var showWrongOnly by rememberSaveable { mutableStateOf(false) }
     var showFilterSheet by rememberSaveable { mutableStateOf(false) }
+    var showVersionDialog by rememberSaveable { mutableStateOf(false) }
     val ttsController = rememberJapaneseTtsController()
 
     if (showFilterSheet) {
@@ -676,6 +677,74 @@ private fun DeckRoute(
                 )
             }
         }
+    }
+
+    if (showVersionDialog && uiState.builtinVersionCatalog != null) {
+        val versionCatalog = uiState.builtinVersionCatalog ?: return
+        AlertDialog(
+            onDismissRequest = { showVersionDialog = false },
+            title = { Text("Builtin Deck Versions") },
+            text = {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    Text(
+                        "Current v${versionCatalog.currentVersionCode}, latest v${versionCatalog.latestVersionCode}",
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    versionCatalog.versions.sortedByDescending { it.versionCode }.forEach { version ->
+                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text(
+                                "v${version.versionCode} / ${version.versionLabel}",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                            Text(
+                                when {
+                                    version.isCurrent && version.isLatest -> "Current and latest version."
+                                    version.isCurrent -> "Current installed version."
+                                    version.isLatest -> "Latest version on server."
+                                    else -> "Available previous version."
+                                },
+                                style = MaterialTheme.typography.bodySmall,
+                                color = InkSoft,
+                            )
+                            if (version.changelog.isNotBlank()) {
+                                Text(
+                                    version.changelog,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = InkMuted,
+                                )
+                            }
+                            if (!version.isCurrent) {
+                                AppSecondaryButton(
+                                    text = if (uiState.isUpdatingBuiltinDeck) "Applying..." else "Apply This Version",
+                                    onClick = {
+                                        showVersionDialog = false
+                                        viewModel.applyBuiltinDeckVersion(version.versionCode)
+                                    },
+                                    enabled = !uiState.isUpdatingBuiltinDeck,
+                                )
+                            }
+                        }
+                        HorizontalDivider()
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { viewModel.refreshBuiltinUpdateInfo() }) {
+                    Text("Refresh")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showVersionDialog = false }) {
+                    Text("Close")
+                }
+            },
+        )
     }
 
     ScreenContainer(
@@ -748,6 +817,11 @@ private fun DeckRoute(
                                         viewModel.refreshBuiltinUpdateInfo()
                                     }
                                 },
+                                enabled = !uiState.isUpdatingBuiltinDeck,
+                            )
+                            AppSecondaryButton(
+                                text = "Versions",
+                                onClick = { showVersionDialog = true },
                                 enabled = !uiState.isUpdatingBuiltinDeck,
                             )
                         } ?: AppSecondaryButton(
