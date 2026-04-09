@@ -1,5 +1,9 @@
 package com.mistbottle.jpnwordtrainer.ui
 
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.BorderStroke
@@ -20,6 +24,7 @@ import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.lazy.LazyColumn
@@ -79,6 +84,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
@@ -157,6 +163,10 @@ fun WordbookApp(
             navController = navController,
             startDestination = "home",
             modifier = Modifier.padding(innerPadding),
+            enterTransition = { fadeIn(animationSpec = tween(durationMillis = 260)) },
+            exitTransition = { fadeOut(animationSpec = tween(durationMillis = 200)) },
+            popEnterTransition = { fadeIn(animationSpec = tween(durationMillis = 260)) },
+            popExitTransition = { fadeOut(animationSpec = tween(durationMillis = 200)) },
         ) {
             composable("home") {
                 val viewModel: HomeViewModel = viewModel(
@@ -1349,7 +1359,7 @@ private fun ExamSetupRoute(
             verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             Card(
-                shape = RoundedCornerShape(20.dp),
+                shape = RoundedCornerShape(10.dp),
                 colors = CardDefaults.cardColors(containerColor = PaperElevated),
                 border = BorderStroke(1.dp, DividerSoft),
             ) {
@@ -1378,7 +1388,7 @@ private fun ExamSetupRoute(
 
             uiState.inProgressExam?.let { inProgress ->
                 Card(
-                    shape = RoundedCornerShape(20.dp),
+                    shape = RoundedCornerShape(10.dp),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
                 ) {
@@ -1639,7 +1649,7 @@ private fun ExamSetupRouteV2(
             verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             Card(
-                shape = RoundedCornerShape(20.dp),
+                shape = RoundedCornerShape(10.dp),
                 colors = CardDefaults.cardColors(containerColor = PaperElevated),
                 border = BorderStroke(1.dp, DividerSoft),
             ) {
@@ -1668,7 +1678,7 @@ private fun ExamSetupRouteV2(
 
             uiState.inProgressExam?.let { inProgress ->
                 Card(
-                    shape = RoundedCornerShape(20.dp),
+                    shape = RoundedCornerShape(10.dp),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
                 ) {
@@ -1793,7 +1803,7 @@ private fun ExamRouteV2(
     val scope = rememberCoroutineScope()
     val ttsController = rememberJapaneseTtsController()
 
-    ScreenContainer(title = "복기 시험", onBack = onBack) {
+    ScreenContainer(title = "시험", onBack = onBack) {
         if (uiState.isLoading || uiState.sessionData == null) {
             LoadingView()
             return@ScreenContainer
@@ -1825,7 +1835,7 @@ private fun ExamRouteV2(
             )
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(28.dp),
+                shape = RoundedCornerShape(16.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                 elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
             ) {
@@ -1930,72 +1940,106 @@ private fun ResultRoute(
         val result = uiState.result ?: return@ScreenContainer
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
+            // 성과 요약 카드
             item {
                 Card(
-                    shape = RoundedCornerShape(20.dp),
+                    shape = RoundedCornerShape(12.dp),
                     colors = CardDefaults.cardColors(containerColor = PaperElevated),
                     border = BorderStroke(1.dp, DividerSoft),
                 ) {
                     Column(
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
-                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 20.dp, vertical = 18.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp),
                     ) {
-                        Text(result.summary.deckName, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                        FlowRow(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp),
-                        ) {
-                            StatsKeyChip("출제", "${result.summary.totalCount}개")
-                            StatsKeyChip("풀이", "${result.summary.answeredCount}개")
-                            StatsKeyChip("정답률", "${result.summary.accuracyPercent}%")
-                        }
                         Text(
-                            "정답 ${result.summary.correctCount} / 오답 ${result.summary.wrongCount}",
-                            style = MaterialTheme.typography.bodyMedium,
+                            result.summary.deckName,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold,
                             color = InkSoft,
                         )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(20.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            // 정답률 크게
+                            val pct = result.summary.accuracyPercent
+                            val accentColor = when {
+                                pct >= 80 -> ExamGreen
+                                pct >= 50 -> PrimaryBlue
+                                else -> SecondaryCoral
+                            }
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(2.dp),
+                            ) {
+                                Text(
+                                    text = "${pct}%",
+                                    style = MaterialTheme.typography.headlineSmall.copy(
+                                        fontSize = 42.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        lineHeight = 48.sp,
+                                    ),
+                                    color = accentColor,
+                                )
+                                Text("정답률", style = MaterialTheme.typography.labelMedium, color = InkMuted)
+                            }
+                            // 세로 구분선
+                            Box(
+                                modifier = Modifier
+                                    .width(1.dp)
+                                    .height(56.dp)
+                                    .background(DividerSoft),
+                            )
+                            // 세부 수치
+                            Column(
+                                verticalArrangement = Arrangement.spacedBy(6.dp),
+                            ) {
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Box(modifier = Modifier.size(8.dp).clip(RoundedCornerShape(2.dp)).background(ExamGreen))
+                                    Text("정답 ${result.summary.correctCount}개", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+                                }
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Box(modifier = Modifier.size(8.dp).clip(RoundedCornerShape(2.dp)).background(SecondaryCoral))
+                                    Text("오답 ${result.summary.wrongCount}개", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+                                }
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Box(modifier = Modifier.size(8.dp).clip(RoundedCornerShape(2.dp)).background(DividerSoft))
+                                    Text("출제 ${result.summary.totalCount}개", style = MaterialTheme.typography.bodyMedium, color = InkSoft)
+                                }
+                            }
+                        }
                     }
                 }
             }
-            item {
-                SectionTitle("세션 정답률 흐름")
-            }
+            // 정답률 흐름 차트
             item {
                 SessionProgressChart(progress = result.progress)
             }
-            item {
-                SectionTitle("이번 세션에서 틀린 단어")
-            }
+            // 이번 세션 오답
+            item { SectionTitle("이번 세션 오답") }
             if (result.missedWords.isEmpty()) {
-                item {
-                    EmptyHint("이번 세션에서는 모든 단어를 맞혔어요.")
-                }
+                item { EmptyHint("이번 세션에서는 모든 단어를 맞혔어요.") }
             } else {
                 items(result.missedWords) { stat ->
                     StatsWordRow(stat = stat)
                 }
             }
-            item {
-                SectionTitle("최근 3일 인사이트")
-            }
-            if (result.insights.isEmpty()) {
-                item {
-                    EmptyHint("최근 3일 기준으로 특별한 패턴은 없었어요.")
-                }
-            } else {
+            // 인사이트
+            if (result.insights.isNotEmpty()) {
+                item { SectionTitle("최근 3일 인사이트") }
                 items(result.insights) { insight ->
                     ResultInsightCard(insight = insight)
                 }
             }
-            item {
-                SectionTitle("누적 자주 틀린 단어")
-            }
+            // 누적 자주 틀린 단어
+            item { SectionTitle("누적 자주 틀린 단어") }
             if (result.topMissedWords.isEmpty()) {
-                item {
-                    EmptyHint("아직 누적 통계가 충분하지 않아요.")
-                }
+                item { EmptyHint("아직 누적 통계가 충분하지 않아요.") }
             } else {
                 items(result.topMissedWords) { stat ->
                     StatsWordRow(stat = stat)
@@ -2350,7 +2394,19 @@ private fun LoadingView() {
 
 @Composable
 private fun SectionTitle(text: String) {
-    Text(text, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            modifier = Modifier
+                .width(3.dp)
+                .height(18.dp)
+                .clip(RoundedCornerShape(2.dp))
+                .background(PrimaryBlue),
+        )
+        Text(text, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+    }
 }
 
 @Composable
@@ -2359,16 +2415,16 @@ private fun StatsKeyChip(
     value: String,
 ) {
     Card(
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(8.dp),
         colors = CardDefaults.cardColors(containerColor = PaperElevated),
         border = BorderStroke(1.dp, DividerSoft),
     ) {
         Column(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
-            verticalArrangement = Arrangement.spacedBy(2.dp),
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
+            verticalArrangement = Arrangement.spacedBy(1.dp),
         ) {
-            Text(label, style = MaterialTheme.typography.labelMedium, color = InkMuted)
-            Text(value, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            Text(label, style = MaterialTheme.typography.labelSmall, color = InkMuted)
+            Text(value, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
         }
     }
 }
@@ -2378,7 +2434,7 @@ private fun StatsWordRow(
     stat: com.mistbottle.jpnwordtrainer.data.model.WordAggregateStat,
 ) {
     Card(
-        shape = RoundedCornerShape(18.dp),
+        shape = RoundedCornerShape(10.dp),
         colors = CardDefaults.cardColors(containerColor = PaperElevated),
         border = BorderStroke(1.dp, DividerSoft),
     ) {
@@ -2417,6 +2473,22 @@ private fun StatsWordRow(
 }
 
 @Composable
+private fun ChartLegendItem(color: Color, label: String) {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            modifier = Modifier
+                .size(8.dp)
+                .clip(RoundedCornerShape(2.dp))
+                .background(color),
+        )
+        Text(label, style = MaterialTheme.typography.labelSmall, color = InkMuted)
+    }
+}
+
+@Composable
 private fun DeckDailyBarChart(
     stats: List<com.mistbottle.jpnwordtrainer.data.model.DeckDailyStat>,
 ) {
@@ -2424,20 +2496,30 @@ private fun DeckDailyBarChart(
     val maxQuestionCount = chartItems.maxOfOrNull { it.totalQuestionCount }?.coerceAtLeast(1) ?: 1
 
     Card(
-        shape = RoundedCornerShape(18.dp),
+        shape = RoundedCornerShape(10.dp),
         colors = CardDefaults.cardColors(containerColor = PaperElevated),
         border = BorderStroke(1.dp, DividerSoft),
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 14.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Text("최근 일자별 응시량", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text("일별 학습량", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    ChartLegendItem(color = PrimaryBlue.copy(alpha = 0.35f), label = "출제")
+                    ChartLegendItem(color = SecondaryCoral, label = "오답")
+                }
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
                 verticalAlignment = Alignment.Bottom,
             ) {
                 chartItems.forEach { daily ->
@@ -2446,42 +2528,40 @@ private fun DeckDailyBarChart(
                     Column(
                         modifier = Modifier.weight(1f),
                         horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalArrangement = Arrangement.spacedBy(5.dp),
                     ) {
                         Box(
-                            modifier = Modifier.height(120.dp),
+                            modifier = Modifier.height(96.dp),
                             contentAlignment = Alignment.BottomCenter,
                         ) {
+                            // 배경 전체 바
                             Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .height((120f * totalBarRatio).dp.coerceAtLeast(6.dp))
-                                    .clip(RoundedCornerShape(topStart = 10.dp, topEnd = 10.dp))
-                                    .background(PrimaryBlueSoft),
+                                    .height((96f * totalBarRatio).dp.coerceAtLeast(4.dp))
+                                    .clip(RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp))
+                                    .background(PrimaryBlue.copy(alpha = 0.20f)),
                             )
+                            // 오답 바 (가운데 정렬, 더 얇게)
                             if (daily.wrongCount > 0) {
                                 Box(
                                     modifier = Modifier
-                                        .fillMaxWidth(0.6f)
-                                        .height((120f * wrongBarRatio).dp.coerceAtLeast(6.dp))
-                                        .clip(RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp))
-                                        .background(SecondaryCoral),
+                                        .fillMaxWidth(0.52f)
+                                        .height((96f * wrongBarRatio).dp.coerceAtLeast(4.dp))
+                                        .clip(RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp))
+                                        .background(SecondaryCoral.copy(alpha = 0.75f)),
                                 )
                             }
                         }
                         Text(
                             text = daily.dateLabel.takeLast(5),
-                            style = MaterialTheme.typography.labelSmall,
+                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
                             color = InkMuted,
+                            textAlign = TextAlign.Center,
                         )
                     }
                 }
             }
-            Text(
-                text = "파랑: 총 문제 수 · 코랄: 오답 수",
-                style = MaterialTheme.typography.bodySmall,
-                color = InkMuted,
-            )
         }
     }
 }
@@ -2731,7 +2811,7 @@ private fun DeckStatsRoute(
                 items(stats.dailyStats) { daily ->
                     Card(
                         modifier = Modifier.clickable { onOpenDateStats(daily.dateKey) },
-                        shape = RoundedCornerShape(18.dp),
+                        shape = RoundedCornerShape(10.dp),
                         colors = CardDefaults.cardColors(containerColor = PaperElevated),
                         border = BorderStroke(1.dp, DividerSoft),
                     ) {
@@ -2813,7 +2893,7 @@ private fun DeckDateStatsRoute(
             } else {
                 items(stats.sessions) { session ->
                     Card(
-                        shape = RoundedCornerShape(18.dp),
+                        shape = RoundedCornerShape(10.dp),
                         colors = CardDefaults.cardColors(containerColor = PaperElevated),
                         border = BorderStroke(1.dp, DividerSoft),
                     ) {
@@ -2855,20 +2935,30 @@ private fun GlobalDailyBarChart(
     val maxQuestionCount = chartItems.maxOfOrNull { it.totalQuestionCount }?.coerceAtLeast(1) ?: 1
 
     Card(
-        shape = RoundedCornerShape(18.dp),
+        shape = RoundedCornerShape(10.dp),
         colors = CardDefaults.cardColors(containerColor = PaperElevated),
         border = BorderStroke(1.dp, DividerSoft),
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 14.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Text("최근 일자별 전체 시험량", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text("기간별 학습량", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    ChartLegendItem(color = PrimaryBlue.copy(alpha = 0.35f), label = "출제")
+                    ChartLegendItem(color = SecondaryCoral, label = "오답")
+                }
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
                 verticalAlignment = Alignment.Bottom,
             ) {
                 chartItems.forEach { daily ->
@@ -2877,42 +2967,38 @@ private fun GlobalDailyBarChart(
                     Column(
                         modifier = Modifier.weight(1f),
                         horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalArrangement = Arrangement.spacedBy(5.dp),
                     ) {
                         Box(
-                            modifier = Modifier.height(120.dp),
+                            modifier = Modifier.height(96.dp),
                             contentAlignment = Alignment.BottomCenter,
                         ) {
                             Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .height((120f * totalBarRatio).dp.coerceAtLeast(6.dp))
-                                    .clip(RoundedCornerShape(topStart = 10.dp, topEnd = 10.dp))
-                                    .background(PrimaryBlueSoft),
+                                    .height((96f * totalBarRatio).dp.coerceAtLeast(4.dp))
+                                    .clip(RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp))
+                                    .background(PrimaryBlue.copy(alpha = 0.20f)),
                             )
                             if (daily.wrongCount > 0) {
                                 Box(
                                     modifier = Modifier
-                                        .fillMaxWidth(0.6f)
-                                        .height((120f * wrongBarRatio).dp.coerceAtLeast(6.dp))
-                                        .clip(RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp))
-                                        .background(SecondaryCoral),
+                                        .fillMaxWidth(0.52f)
+                                        .height((96f * wrongBarRatio).dp.coerceAtLeast(4.dp))
+                                        .clip(RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp))
+                                        .background(SecondaryCoral.copy(alpha = 0.75f)),
                                 )
                             }
                         }
                         Text(
                             text = daily.dateLabel.takeLast(5),
-                            style = MaterialTheme.typography.labelSmall,
+                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
                             color = InkMuted,
+                            textAlign = TextAlign.Center,
                         )
                     }
                 }
             }
-            Text(
-                text = "파랑: 총 문제 수 · 코랄: 오답 수",
-                style = MaterialTheme.typography.bodySmall,
-                color = InkMuted,
-            )
         }
     }
 }
@@ -2927,46 +3013,78 @@ private fun SessionProgressChart(
     }
     val chartItems = progress.takeLast(10)
     Card(
-        shape = RoundedCornerShape(18.dp),
+        shape = RoundedCornerShape(10.dp),
         colors = CardDefaults.cardColors(containerColor = PaperElevated),
         border = BorderStroke(1.dp, DividerSoft),
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 14.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Text("문항이 쌓일수록 정답률이 어떻게 변했는지 보여줘요.", style = MaterialTheme.typography.bodySmall, color = InkMuted)
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text("정답률 흐름", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                ChartLegendItem(color = ExamGreen, label = "정답률")
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(5.dp),
                 verticalAlignment = Alignment.Bottom,
             ) {
                 chartItems.forEach { point ->
+                    val ratio = (point.accuracyPercent / 100f).coerceIn(0f, 1f)
+                    val barColor = when {
+                        point.accuracyPercent >= 80 -> ExamGreen
+                        point.accuracyPercent >= 50 -> PrimaryBlue
+                        else -> SecondaryCoral
+                    }
                     Column(
                         modifier = Modifier.weight(1f),
                         horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalArrangement = Arrangement.spacedBy(5.dp),
                     ) {
                         Box(
                             modifier = Modifier
-                                .height(120.dp)
+                                .height(88.dp)
                                 .fillMaxWidth(),
                             contentAlignment = Alignment.BottomCenter,
                         ) {
+                            // 배경 트랙
                             Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .height((120f * (point.accuracyPercent / 100f)).dp.coerceAtLeast(6.dp))
-                                    .clip(RoundedCornerShape(topStart = 10.dp, topEnd = 10.dp))
-                                    .background(ExamGreen),
+                                    .fillMaxHeight()
+                                    .clip(RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp))
+                                    .background(DividerSoft.copy(alpha = 0.4f)),
+                            )
+                            // 실제 바
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height((88f * ratio).dp.coerceAtLeast(4.dp))
+                                    .clip(RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp))
+                                    .background(barColor.copy(alpha = 0.75f)),
                             )
                         }
-                        Text("${point.step}", style = MaterialTheme.typography.labelSmall, color = InkMuted)
+                        Text(
+                            text = "${point.step}",
+                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
+                            color = InkMuted,
+                            textAlign = TextAlign.Center,
+                        )
                     }
                 }
             }
+            Text(
+                text = "각 구간 누적 정답률 · 녹색 80%↑ · 파랑 50%↑ · 코랄 50%↓",
+                style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                color = InkMuted,
+            )
         }
     }
 }
@@ -2977,7 +3095,7 @@ private fun SessionSummaryCard(
     trailingContent: (@Composable () -> Unit)? = null,
 ) {
     Card(
-        shape = RoundedCornerShape(18.dp),
+        shape = RoundedCornerShape(10.dp),
         colors = CardDefaults.cardColors(containerColor = PaperElevated),
         border = BorderStroke(1.dp, DividerSoft),
     ) {
@@ -3027,7 +3145,7 @@ private fun ResultInsightCard(
         ResultInsightType.IMPROVED_WORD -> ExamGreen
     }
     Card(
-        shape = RoundedCornerShape(18.dp),
+        shape = RoundedCornerShape(10.dp),
         colors = CardDefaults.cardColors(containerColor = PaperElevated),
         border = BorderStroke(1.dp, DividerSoft),
     ) {
@@ -3064,7 +3182,7 @@ private fun StatsDateFilterCard(
     onApplyCustomRange: () -> Unit,
 ) {
     Card(
-        shape = RoundedCornerShape(18.dp),
+        shape = RoundedCornerShape(10.dp),
         colors = CardDefaults.cardColors(containerColor = PaperElevated),
         border = BorderStroke(1.dp, DividerSoft),
     ) {
@@ -3255,7 +3373,7 @@ private fun DeckCard(
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onClick() },
-        shape = RoundedCornerShape(22.dp),
+        shape = RoundedCornerShape(14.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         border = BorderStroke(1.25.dp, CardBorderStrong),
     ) {
@@ -3461,114 +3579,96 @@ private fun WordRow(
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onClick() },
-        shape = RoundedCornerShape(18.dp),
+        shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = PaperElevated),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
         border = BorderStroke(1.25.dp, CardBorderStrong),
     ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
+        Box {
             Row(
-                modifier = Modifier
-                    .weight(1f)
-                    .height(IntrinsicSize.Min),
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
-                verticalAlignment = if (showOnlyMeaningKo) Alignment.CenterVertically else Alignment.Top,
+                modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                Column(
+                Row(
                     modifier = Modifier
-                        .weight(leftColumnWeight)
-                        .fillMaxHeight(),
-                    verticalArrangement = if (!hasMeaningColumn) Arrangement.Center else Arrangement.spacedBy(4.dp),
+                        .weight(1f)
+                        .height(IntrinsicSize.Min),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    verticalAlignment = if (showOnlyMeaningKo) Alignment.CenterVertically else Alignment.Top,
                 ) {
-                    RubyFieldText(
-                        word = word,
-                        field = WordField.KANJI,
-                        mainStyle = kanjiMainStyle,
-                        rubyStyle = MaterialTheme.typography.labelMedium,
-                        rubyColor = SecondaryCoral,
-                    )
-                    if (showReadingKo && word.readingKo.isNotBlank()) {
-                        Text(
-                            text = word.readingKo,
-                            style = MaterialTheme.typography.labelMedium,
-                            color = InkMuted,
-                        )
-                    }
-                }
-                if (hasMeaningColumn) {
                     Column(
                         modifier = Modifier
-                            .weight(rightColumnWeight)
+                            .weight(leftColumnWeight)
                             .fillMaxHeight(),
-                        verticalArrangement = when {
-                            showOnlyMeaningKo -> Arrangement.Center
-                            showOnlyMeaningJa -> Arrangement.Center
-                            else -> Arrangement.spacedBy(8.dp)
-                        },
+                        verticalArrangement = if (!hasMeaningColumn) Arrangement.Center else Arrangement.spacedBy(4.dp),
                     ) {
-                        if (showMeaningKo && word.meaningKo.isNotBlank()) {
+                        RubyFieldText(
+                            word = word,
+                            field = WordField.KANJI,
+                            mainStyle = kanjiMainStyle,
+                            rubyStyle = MaterialTheme.typography.labelMedium,
+                            rubyColor = SecondaryCoral,
+                        )
+                        if (showReadingKo && word.readingKo.isNotBlank()) {
                             Text(
-                                text = word.meaningKo,
-                                style = meaningKoStyle,
-                                color = InkSoft,
-                            )
-                        }
-                        if (showMeaningJa && word.meaningJa.isNotBlank()) {
-                            NonInteractiveJapaneseText(
-                                text = word.meaningJa,
-                                currentWordId = word.id,
-                                allWords = allWords,
-                                baseStyle = meaningJaBaseStyle,
-                                rubyStyle = meaningJaRubyStyle,
-                                baseColor = InkSoft,
-                                rubyColor = SecondaryCoral,
+                                text = word.readingKo,
+                                style = MaterialTheme.typography.labelMedium,
+                                color = InkMuted,
                             )
                         }
                     }
+                    if (hasMeaningColumn) {
+                        Column(
+                            modifier = Modifier
+                                .weight(rightColumnWeight)
+                                .fillMaxHeight(),
+                            verticalArrangement = when {
+                                showOnlyMeaningKo -> Arrangement.Center
+                                showOnlyMeaningJa -> Arrangement.Center
+                                else -> Arrangement.spacedBy(8.dp)
+                            },
+                        ) {
+                            if (showMeaningKo && word.meaningKo.isNotBlank()) {
+                                Text(
+                                    text = word.meaningKo,
+                                    style = meaningKoStyle,
+                                    color = InkSoft,
+                                )
+                            }
+                            if (showMeaningJa && word.meaningJa.isNotBlank()) {
+                                NonInteractiveJapaneseText(
+                                    text = word.meaningJa,
+                                    currentWordId = word.id,
+                                    allWords = allWords,
+                                    baseStyle = meaningJaBaseStyle,
+                                    rubyStyle = meaningJaRubyStyle,
+                                    baseColor = InkSoft,
+                                    rubyColor = SecondaryCoral,
+                                )
+                            }
+                        }
+                    }
                 }
-            }
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
                 SpeakIconButton(
                     enabled = true,
                     onClick = { onSpeak(word) },
                 )
-                if (showPartOfSpeech) {
-                    Column(
-                        modifier = Modifier
-                            .width(28.dp)
-                            .fillMaxHeight()
-                            .clip(RoundedCornerShape(999.dp))
-                            .background(partOfSpeechAccent.copy(alpha = 0.14f))
-                            .padding(vertical = 8.dp, horizontal = 4.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center,
-                    ) {
-                        Spacer(
-                            modifier = Modifier
-                                .width(4.dp)
-                                .height(26.dp)
-                                .clip(RoundedCornerShape(999.dp))
-                                .background(partOfSpeechAccent),
-                        )
-                        Spacer(modifier = Modifier.height(6.dp))
-                        Text(
-                            text = partOfSpeechVerticalLabel(partOfSpeechLabel),
-                            style = MaterialTheme.typography.labelSmall.copy(
-                                fontSize = 10.sp,
-                                lineHeight = 10.sp,
-                                fontWeight = FontWeight.SemiBold,
-                            ),
-                            color = partOfSpeechAccent,
-                            textAlign = TextAlign.Center,
-                        )
+            }
+            // 품사 모서리 삼각형
+            if (showPartOfSpeech) {
+                Canvas(
+                    modifier = Modifier
+                        .size(44.dp)
+                        .align(Alignment.TopStart),
+                ) {
+                    val path = Path().apply {
+                        moveTo(0f, 0f)
+                        lineTo(size.width, 0f)
+                        lineTo(0f, size.height)
+                        close()
                     }
+                    drawPath(path = path, color = partOfSpeechAccent.copy(alpha = 0.42f))
                 }
             }
         }
@@ -3583,7 +3683,7 @@ private fun WordDictionaryHeader(
     ttsAvailable: Boolean,
 ) {
     Card(
-        shape = RoundedCornerShape(24.dp),
+        shape = RoundedCornerShape(14.dp),
         colors = CardDefaults.cardColors(containerColor = PaperElevated),
         border = BorderStroke(1.25.dp, CardBorderStrong),
     ) {
@@ -3639,7 +3739,7 @@ private fun DetailSection(
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
         Card(
-            shape = RoundedCornerShape(20.dp),
+            shape = RoundedCornerShape(10.dp),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
             border = BorderStroke(1.dp, DividerSoft),
         ) {
@@ -4096,7 +4196,7 @@ private fun <T> SettingGroup(
     onSelect: (T) -> Unit,
 ) {
     Card(
-        shape = RoundedCornerShape(20.dp),
+        shape = RoundedCornerShape(10.dp),
         colors = CardDefaults.cardColors(containerColor = PaperElevated),
         border = BorderStroke(1.dp, DividerSoft),
     ) {
@@ -4152,7 +4252,7 @@ private fun ExamBooleanOptionGroup(
     onCheckedChange: (Boolean) -> Unit,
 ) {
     Card(
-        shape = RoundedCornerShape(20.dp),
+        shape = RoundedCornerShape(10.dp),
         colors = CardDefaults.cardColors(containerColor = PaperElevated),
         border = BorderStroke(1.dp, DividerSoft),
     ) {
@@ -4201,7 +4301,7 @@ private fun ExamWordCountGroup(
     onCustomInputChanged: (String) -> Unit,
 ) {
     Card(
-        shape = RoundedCornerShape(20.dp),
+        shape = RoundedCornerShape(10.dp),
         colors = CardDefaults.cardColors(containerColor = PaperElevated),
         border = BorderStroke(1.dp, DividerSoft),
     ) {
@@ -4285,7 +4385,7 @@ private fun ExamWordCountGroup(
 
 @Composable
 private fun EmptyHint(text: String) {
-    Text(text, style = MaterialTheme.typography.bodyMedium)
+    Text(text, style = MaterialTheme.typography.bodyMedium, color = InkSoft)
 }
 
 @Composable
@@ -4428,7 +4528,7 @@ private fun ExamRevealFieldsGroup(
     onToggle: (WordField) -> Unit,
 ) {
     Card(
-        shape = RoundedCornerShape(20.dp),
+        shape = RoundedCornerShape(10.dp),
         colors = CardDefaults.cardColors(containerColor = PaperElevated),
         border = BorderStroke(1.dp, DividerSoft),
     ) {
