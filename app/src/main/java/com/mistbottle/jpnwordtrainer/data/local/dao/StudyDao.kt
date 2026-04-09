@@ -149,6 +149,19 @@ interface StudyDao {
         UPDATE tests
         SET status = 'EXPIRED',
             changedAt = :changedAt
+        WHERE id = :testId
+        """,
+    )
+    suspend fun expireTestById(
+        testId: Long,
+        changedAt: Long,
+    )
+
+    @Query(
+        """
+        UPDATE tests
+        SET status = 'EXPIRED',
+            changedAt = :changedAt
         WHERE status = 'IN_PROGRESS' AND startedAt < :expiresBefore
         """,
     )

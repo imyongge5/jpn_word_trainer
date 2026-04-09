@@ -126,6 +126,9 @@ interface DeckDao {
     @Query("SELECT * FROM deck_word_cross_ref")
     suspend fun getAllDeckWordCrossRefs(): List<DeckWordCrossRef>
 
+    @Query("SELECT COUNT(*) FROM deck_word_cross_ref WHERE deckId = :deckId")
+    suspend fun getDeckWordCrossRefCount(deckId: Long): Int
+
     @Query("DELETE FROM deck_word_cross_ref WHERE deckId = :deckId")
     suspend fun deleteDeckWordCrossRefsForDeck(deckId: Long)
 

@@ -1431,6 +1431,10 @@ private fun ExamRoute(
         val showExamRuby = sessionData.session.revealField != WordField.READING_JA &&
             sessionData.session.revealField != WordField.READING_KO
         val currentIndex = sessionData.answersCount
+        if (currentIndex !in sessionData.words.indices) {
+            EmptyHint("진행 중인 시험 데이터를 다시 불러와 주세요.")
+            return@ScreenContainer
+        }
         val currentWord = sessionData.words[currentIndex]
         Column(
             modifier = Modifier.fillMaxSize(),
@@ -1729,6 +1733,10 @@ private fun ExamRouteV2(
         val revealFields = deserializeRevealFields(sessionData.session.revealFieldsSerialized)
         val showExamRuby = WordField.READING_JA !in revealFields && WordField.READING_KO !in revealFields
         val currentIndex = sessionData.answersCount
+        if (currentIndex !in sessionData.words.indices) {
+            EmptyHint("진행 중인 시험 데이터를 다시 불러와 주세요.")
+            return@ScreenContainer
+        }
         val currentWord = sessionData.words[currentIndex]
 
         Column(

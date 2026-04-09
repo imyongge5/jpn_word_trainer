@@ -349,10 +349,15 @@ class WordbookRepository(
         val test = requireNotNull(studyDao.getTestById(sessionId))
         val wordIds = parseWordIds(test.wordIdsSerialized)
         val wordsById = wordDao.getWordsByIds(wordIds).associateBy { it.id }
+        val words = wordIds.mapNotNull { wordsById[it] }
+        val answersCount = studyDao.getLogsForTest(sessionId).size
+        if (test.status == TestStatus.IN_PROGRESS && (words.isEmpty() || answersCount >= words.size)) {
+            studyDao.expireTestById(sessionId, System.currentTimeMillis())
+        }
         ExamSessionData(
             test = test,
-            words = wordIds.mapNotNull { wordsById[it] },
-            answersCount = studyDao.getLogsForTest(sessionId).size,
+            words = if (answersCount >= words.size) emptyList() else words,
+            answersCount = answersCount,
         )
     }
 
