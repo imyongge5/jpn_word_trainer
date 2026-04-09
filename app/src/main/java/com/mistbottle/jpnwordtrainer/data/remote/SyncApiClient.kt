@@ -23,7 +23,9 @@ class SyncApiClient(
     private val authRequestAdapter: JsonAdapter<AuthRequestDto> = moshi.adapter(AuthRequestDto::class.java)
     private val tokenResponseAdapter: JsonAdapter<AuthTokenResponseDto> = moshi.adapter(AuthTokenResponseDto::class.java)
     private val syncPayloadAdapter: JsonAdapter<SyncPayloadDto> = moshi.adapter(SyncPayloadDto::class.java)
+    private val builtinDeckVersionListAdapter: JsonAdapter<BuiltinDeckVersionListDto> = moshi.adapter(BuiltinDeckVersionListDto::class.java)
     private val builtinDeckUpdateAdapter: JsonAdapter<BuiltinDeckUpdatePackageDto> = moshi.adapter(BuiltinDeckUpdatePackageDto::class.java)
+    private val builtinDeckVersionPackageAdapter: JsonAdapter<BuiltinDeckVersionPackageDto> = moshi.adapter(BuiltinDeckVersionPackageDto::class.java)
     private val jsonMediaType = "application/json".toMediaType()
 
     suspend fun register(username: String, password: String): Unit = withContext(Dispatchers.IO) {
@@ -101,6 +103,44 @@ class SyncApiClient(
             }
             return@withContext builtinDeckUpdateAdapter.fromJson(raw)
                 ?: throw SyncApiException("덱 업데이트 응답을 해석하지 못했습니다.")
+        }
+    }
+    suspend fun getBuiltinDeckVersions(
+        token: String,
+        stableKey: String,
+    ): BuiltinDeckVersionListDto = withContext(Dispatchers.IO) {
+        val request = Request.Builder()
+            .url("$normalizedBaseUrl/builtin-decks/$stableKey/versions")
+            .header("Authorization", "Bearer $token")
+            .get()
+            .build()
+        httpClient.newCall(request).execute().use { response ->
+            val raw = response.body?.string().orEmpty()
+            if (!response.isSuccessful) {
+                throw SyncApiException(raw.ifBlank { "기본 덱 버전 목록을 가져오지 못했어요." })
+            }
+            return@withContext builtinDeckVersionListAdapter.fromJson(raw)
+                ?: throw SyncApiException("기본 덱 버전 목록 응답을 해석하지 못했어요.")
+        }
+    }
+
+    suspend fun getBuiltinDeckVersionPackage(
+        token: String,
+        stableKey: String,
+        versionCode: Int,
+    ): BuiltinDeckVersionPackageDto = withContext(Dispatchers.IO) {
+        val request = Request.Builder()
+            .url("$normalizedBaseUrl/builtin-decks/$stableKey/versions/$versionCode")
+            .header("Authorization", "Bearer $token")
+            .get()
+            .build()
+        httpClient.newCall(request).execute().use { response ->
+            val raw = response.body?.string().orEmpty()
+            if (!response.isSuccessful) {
+                throw SyncApiException(raw.ifBlank { "기본 덱 버전 데이터를 가져오지 못했어요." })
+            }
+            return@withContext builtinDeckVersionPackageAdapter.fromJson(raw)
+                ?: throw SyncApiException("기본 덱 버전 응답을 해석하지 못했어요.")
         }
     }
 }

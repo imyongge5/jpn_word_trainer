@@ -17,6 +17,7 @@ import com.mistbottle.jpnwordtrainer.data.local.entity.TestEntity
 import com.mistbottle.jpnwordtrainer.data.local.entity.TestWordLogEntity
 import com.mistbottle.jpnwordtrainer.data.local.entity.WordEntity
 import com.mistbottle.jpnwordtrainer.data.remote.AuthTokenResponseDto
+import com.mistbottle.jpnwordtrainer.data.remote.BuiltinDeckVersionPackageDto
 import com.mistbottle.jpnwordtrainer.data.remote.BuiltinDeckUpdatePackageDto
 import com.mistbottle.jpnwordtrainer.data.remote.DeckSyncDto
 import com.mistbottle.jpnwordtrainer.data.remote.DeckInstallStateSyncDto
@@ -29,6 +30,8 @@ import com.mistbottle.jpnwordtrainer.data.remote.TestSyncDto
 import com.mistbottle.jpnwordtrainer.data.remote.TestWordLogSyncDto
 import com.mistbottle.jpnwordtrainer.data.remote.WordSyncDto
 import com.mistbottle.jpnwordtrainer.data.model.DeckType
+import com.mistbottle.jpnwordtrainer.data.model.BuiltinDeckVersionCatalog
+import com.mistbottle.jpnwordtrainer.data.model.BuiltinDeckVersionItem
 import com.mistbottle.jpnwordtrainer.data.model.BuiltinDeckUpdateInfo
 import com.mistbottle.jpnwordtrainer.data.model.TestStatus
 import com.mistbottle.jpnwordtrainer.data.model.WordField
@@ -195,6 +198,44 @@ class SyncRepository(
         )
     }
 
+    suspend fun getBuiltinDeckVersionCatalog(deckId: Long): BuiltinDeckVersionCatalog? = withContext(Dispatchers.IO) {
+        val serverUrl = appSettingDao.getValue(SERVER_URL_KEY).orEmpty()
+        val token = appSettingDao.getValue(AUTH_TOKEN_KEY).orEmpty()
+        if (serverUrl.isBlank() || token.isBlank()) return@withContext null
+        val deck = deckDao.getDeckById(deckId) ?: return@withContext null
+        if (!deck.isBuiltin || deck.stableKey.isNullOrBlank()) return@withContext null
+        val installState = deckDao.getDeckInstallState(deckId)
+        val currentVersionCode = installState?.currentVersionCode ?: deck.deckVersionCode ?: 1
+        val versionList = SyncApiClient(serverUrl, httpClient).getBuiltinDeckVersions(
+            token = token,
+            stableKey = deck.stableKey,
+        )
+        upsertDeckInstallState(
+            stableKey = versionList.stableKey,
+            deckId = deckId,
+            currentVersionCode = currentVersionCode,
+            latestKnownVersionCode = versionList.latestVersionCode,
+            updateAvailable = versionList.latestVersionCode > currentVersionCode,
+            isLegacyVersion = installState?.isLegacyVersion ?: true,
+        )
+        BuiltinDeckVersionCatalog(
+            stableKey = versionList.stableKey,
+            name = versionList.name,
+            currentVersionCode = currentVersionCode,
+            latestVersionCode = versionList.latestVersionCode,
+            versions = versionList.versions.map { version ->
+                BuiltinDeckVersionItem(
+                    versionCode = version.versionCode,
+                    versionLabel = version.versionLabel,
+                    changelog = version.changelog,
+                    publishedAt = version.publishedAt,
+                    isLatest = version.isLatest,
+                    isCurrent = version.versionCode == currentVersionCode,
+                )
+            },
+        )
+    }
+
     suspend fun applyBuiltinDeckUpdate(deckId: Long): SyncResult = withContext(Dispatchers.IO) {
         val serverUrl = appSettingDao.getValue(SERVER_URL_KEY).orEmpty()
         val token = appSettingDao.getValue(AUTH_TOKEN_KEY).orEmpty()
@@ -217,6 +258,30 @@ class SyncRepository(
         }.fold(
             onSuccess = { it },
             onFailure = { SyncResult.Error(it.message ?: "기본 덱 업데이트에 실패했어요.") },
+        )
+    }
+
+    suspend fun applyBuiltinDeckVersion(deckId: Long, versionCode: Int): SyncResult = withContext(Dispatchers.IO) {
+        val serverUrl = appSettingDao.getValue(SERVER_URL_KEY).orEmpty()
+        val token = appSettingDao.getValue(AUTH_TOKEN_KEY).orEmpty()
+        if (serverUrl.isBlank() || token.isBlank()) return@withContext SyncResult.NotConfigured
+        val deck = deckDao.getDeckById(deckId) ?: return@withContext SyncResult.Error("단어장 정보를 찾지 못했어요.")
+        if (!deck.isBuiltin || deck.stableKey.isNullOrBlank()) {
+            return@withContext SyncResult.Error("기본 덱만 버전 업데이트를 할 수 있어요.")
+        }
+        if (studyDao.getInProgressTestForDeck(deckId) != null) {
+            return@withContext SyncResult.Error("진행 중인 시험이 있어서 지금은 버전을 바꿀 수 없어요.")
+        }
+        runCatching {
+            val versionPackage = SyncApiClient(serverUrl, httpClient).getBuiltinDeckVersionPackage(
+                token = token,
+                stableKey = deck.stableKey,
+                versionCode = versionCode,
+            )
+            applyBuiltinDeckVersionPackage(deck, versionPackage)
+        }.fold(
+            onSuccess = { it },
+            onFailure = { SyncResult.Error(it.message ?: "기본 덱 버전 적용에 실패했어요.") },
         )
     }
 
@@ -560,6 +625,25 @@ class SyncRepository(
         }
         return SyncResult.Success
     }
+
+    private suspend fun applyBuiltinDeckVersionPackage(
+        deck: DeckEntity,
+        versionPackage: BuiltinDeckVersionPackageDto,
+    ): SyncResult = applyBuiltinDeckUpdatePackage(
+        deck = deck,
+        updatePackage = BuiltinDeckUpdatePackageDto(
+            stableKey = versionPackage.stableKey,
+            name = versionPackage.name,
+            currentVersionCode = deck.deckVersionCode ?: 1,
+            targetVersionCode = versionPackage.versionCode,
+            targetVersionLabel = versionPackage.versionLabel,
+            changelog = versionPackage.changelog,
+            updateAvailable = true,
+            words = versionPackage.words,
+            deckWordRefs = versionPackage.deckWordRefs,
+            mappings = emptyList(),
+        ),
+    )
 
     private suspend fun upsertDeckInstallState(
         stableKey: String,

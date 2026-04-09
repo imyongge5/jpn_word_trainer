@@ -133,6 +133,22 @@ class BuiltinWordMappingSchema(BaseModel):
     mapping_type: str
 
 
+class BuiltinDeckVersionSummarySchema(BaseModel):
+    version_code: int
+    version_label: str
+    changelog: str
+    published_at: int
+    is_latest: bool
+
+
+class BuiltinDeckVersionListSchema(BaseModel):
+    stable_key: str
+    name: str
+    current_version_code: int
+    latest_version_code: int
+    versions: List[BuiltinDeckVersionSummarySchema]
+
+
 class BuiltinDeckUpdatePackageSchema(BaseModel):
     stable_key: str
     name: str
@@ -144,6 +160,16 @@ class BuiltinDeckUpdatePackageSchema(BaseModel):
     words: List[WordSchema]
     deck_word_refs: List[DeckWordRefSchema]
     mappings: List[BuiltinWordMappingSchema]
+
+
+class BuiltinDeckVersionPackageSchema(BaseModel):
+    stable_key: str
+    name: str
+    version_code: int
+    version_label: str
+    changelog: str
+    words: List[WordSchema]
+    deck_word_refs: List[DeckWordRefSchema]
 
 
 class SyncPayload(BaseModel):

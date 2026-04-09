@@ -112,6 +112,22 @@ data class BuiltinWordMappingDto(
     @Json(name = "mapping_type") val mappingType: String,
 )
 
+data class BuiltinDeckVersionDto(
+    @Json(name = "version_code") val versionCode: Int,
+    @Json(name = "version_label") val versionLabel: String,
+    val changelog: String,
+    @Json(name = "published_at") val publishedAt: Long,
+    @Json(name = "is_latest") val isLatest: Boolean,
+)
+
+data class BuiltinDeckVersionListDto(
+    @Json(name = "stable_key") val stableKey: String,
+    val name: String,
+    @Json(name = "current_version_code") val currentVersionCode: Int,
+    @Json(name = "latest_version_code") val latestVersionCode: Int,
+    val versions: List<BuiltinDeckVersionDto>,
+)
+
 data class BuiltinDeckUpdatePackageDto(
     @Json(name = "stable_key") val stableKey: String,
     val name: String,
@@ -123,6 +139,16 @@ data class BuiltinDeckUpdatePackageDto(
     val words: List<WordSyncDto>,
     @Json(name = "deck_word_refs") val deckWordRefs: List<DeckWordRefSyncDto>,
     val mappings: List<BuiltinWordMappingDto>,
+)
+
+data class BuiltinDeckVersionPackageDto(
+    @Json(name = "stable_key") val stableKey: String,
+    val name: String,
+    @Json(name = "version_code") val versionCode: Int,
+    @Json(name = "version_label") val versionLabel: String,
+    val changelog: String,
+    val words: List<WordSyncDto>,
+    @Json(name = "deck_word_refs") val deckWordRefs: List<DeckWordRefSyncDto>,
 )
 
 data class SyncPayloadDto(

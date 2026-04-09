@@ -88,6 +88,7 @@ class DeckDetailViewModel(
                 words = detail.words,
                 wrongWordIds = repository.getWrongWordIds(),
                 builtinUpdateInfo = syncRepository.getBuiltinDeckUpdateInfo(deckId),
+                builtinVersionCatalog = syncRepository.getBuiltinDeckVersionCatalog(deckId),
             )
             repository.observeDeckWords(deckId).collectLatest { words ->
                 _uiState.value = _uiState.value.copy(
@@ -101,7 +102,12 @@ class DeckDetailViewModel(
 
     fun refreshBuiltinUpdateInfo() {
         viewModelScope.launch {
-            _uiState.update { it.copy(builtinUpdateInfo = syncRepository.getBuiltinDeckUpdateInfo(deckId)) }
+            _uiState.update {
+                it.copy(
+                    builtinUpdateInfo = syncRepository.getBuiltinDeckUpdateInfo(deckId),
+                    builtinVersionCatalog = syncRepository.getBuiltinDeckVersionCatalog(deckId),
+                )
+            }
         }
     }
 
@@ -116,6 +122,7 @@ class DeckDetailViewModel(
                         deck = detail.deck,
                         words = detail.words,
                         builtinUpdateInfo = syncRepository.getBuiltinDeckUpdateInfo(deckId),
+                        builtinVersionCatalog = syncRepository.getBuiltinDeckVersionCatalog(deckId),
                     )
                 }
                 is SyncResult.Error -> _uiState.update {
@@ -123,6 +130,31 @@ class DeckDetailViewModel(
                 }
                 SyncResult.NotConfigured -> _uiState.update {
                     it.copy(isUpdatingBuiltinDeck = false, errorMessage = "서버 주소와 로그인 정보를 먼저 설정해 주세요.")
+                }
+            }
+            _uiState.update { it.copy(isUpdatingBuiltinDeck = false) }
+        }
+    }
+
+    fun applyBuiltinDeckVersion(versionCode: Int) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isUpdatingBuiltinDeck = true, errorMessage = null) }
+            when (val result = syncRepository.applyBuiltinDeckVersion(deckId, versionCode)) {
+                SyncResult.Success -> {
+                    val detail = repository.getDeckDetail(deckId)
+                    _uiState.value = DeckDetailUiState(
+                        isLoading = false,
+                        deck = detail.deck,
+                        words = detail.words,
+                        builtinUpdateInfo = syncRepository.getBuiltinDeckUpdateInfo(deckId),
+                        builtinVersionCatalog = syncRepository.getBuiltinDeckVersionCatalog(deckId),
+                    )
+                }
+                is SyncResult.Error -> _uiState.update {
+                    it.copy(isUpdatingBuiltinDeck = false, errorMessage = result.message)
+                }
+                SyncResult.NotConfigured -> _uiState.update {
+                    it.copy(isUpdatingBuiltinDeck = false, errorMessage = "?쒕쾭 二쇱냼? 濡쒓렇???뺣낫瑜?癒쇱? ?ㅼ젙??二쇱꽭??")
                 }
             }
             _uiState.update { it.copy(isUpdatingBuiltinDeck = false) }

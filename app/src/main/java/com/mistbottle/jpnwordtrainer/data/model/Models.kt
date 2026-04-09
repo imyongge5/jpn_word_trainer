@@ -278,6 +278,23 @@ data class BuiltinDeckUpdateInfo(
     val updateAvailable: Boolean,
 )
 
+data class BuiltinDeckVersionItem(
+    val versionCode: Int,
+    val versionLabel: String,
+    val changelog: String,
+    val publishedAt: Long,
+    val isLatest: Boolean,
+    val isCurrent: Boolean,
+)
+
+data class BuiltinDeckVersionCatalog(
+    val stableKey: String,
+    val name: String,
+    val currentVersionCode: Int,
+    val latestVersionCode: Int,
+    val versions: List<BuiltinDeckVersionItem>,
+)
+
 data class WordDetailData(
     val word: WordEntity,
     val includedDecks: List<DeckWithCount>,

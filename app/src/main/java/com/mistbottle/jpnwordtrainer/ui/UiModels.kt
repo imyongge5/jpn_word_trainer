@@ -2,6 +2,7 @@ package com.mistbottle.jpnwordtrainer.ui
 
 import com.mistbottle.jpnwordtrainer.data.local.entity.DeckEntity
 import com.mistbottle.jpnwordtrainer.data.local.entity.WordEntity
+import com.mistbottle.jpnwordtrainer.data.model.BuiltinDeckVersionCatalog
 import com.mistbottle.jpnwordtrainer.data.model.DeckWithCount
 import com.mistbottle.jpnwordtrainer.data.model.BuiltinDeckUpdateInfo
 import com.mistbottle.jpnwordtrainer.data.model.DeckDateStatsData
@@ -30,6 +31,7 @@ data class DeckDetailUiState(
     val words: List<WordEntity> = emptyList(),
     val wrongWordIds: Set<Long> = emptySet(),
     val builtinUpdateInfo: BuiltinDeckUpdateInfo? = null,
+    val builtinVersionCatalog: BuiltinDeckVersionCatalog? = null,
     val isUpdatingBuiltinDeck: Boolean = false,
     val errorMessage: String? = null,
 )
