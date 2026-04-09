@@ -215,7 +215,7 @@ class SyncRepository(
             )
             applyBuiltinDeckUpdatePackage(deck, updatePackage)
         }.fold(
-            onSuccess = { SyncResult.Success },
+            onSuccess = { it },
             onFailure = { SyncResult.Error(it.message ?: "기본 덱 업데이트에 실패했어요.") },
         )
     }
@@ -496,7 +496,7 @@ class SyncRepository(
     private suspend fun applyBuiltinDeckUpdatePackage(
         deck: DeckEntity,
         updatePackage: BuiltinDeckUpdatePackageDto,
-    ) {
+    ): SyncResult {
         if (!updatePackage.updateAvailable) {
             upsertDeckInstallState(
                 stableKey = updatePackage.stableKey,
@@ -506,8 +506,25 @@ class SyncRepository(
                 updateAvailable = false,
                 isLegacyVersion = false,
             )
-            return
+            return SyncResult.Success
         }
+
+        val invalidPackageMessage = "업데이트 패키지가 비정상이라 적용을 중단했어요."
+        val existingCrossRefCount = deckDao.getDeckWordCrossRefCount(deck.id)
+        val incomingCrossRefCount = updatePackage.deckWordRefs.size
+        if (deck.type == DeckType.JLPT && existingCrossRefCount > 0 && incomingCrossRefCount == 0) {
+            return SyncResult.Error("업데이트 패키지가 비정상이라 적용을 중단했어요. 단어 연결 정보가 0건으로 감소해 기존 데이터를 유지했어요.")
+        }
+
+        if (updatePackage.words.isEmpty()) return SyncResult.Error(invalidPackageMessage)
+        if (updatePackage.deckWordRefs.isEmpty()) return SyncResult.Error(invalidPackageMessage)
+        if (updatePackage.stableKey != deck.stableKey) return SyncResult.Error(invalidPackageMessage)
+
+        val wordIds = updatePackage.words.map { it.id }.toSet()
+        if (updatePackage.deckWordRefs.any { ref -> ref.wordId !in wordIds }) {
+            return SyncResult.Error(invalidPackageMessage)
+        }
+
         database.withTransaction {
             wordDao.insertWords(updatePackage.words.map(::dtoToWord))
             deckDao.insertDeck(
@@ -538,6 +555,7 @@ class SyncRepository(
                 isLegacyVersion = false,
             )
         }
+        return SyncResult.Success
     }
 
     private suspend fun upsertDeckInstallState(
