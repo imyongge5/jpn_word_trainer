@@ -50,6 +50,7 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
@@ -93,9 +94,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.FilterList
-import androidx.compose.material.icons.outlined.Menu
+import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material.icons.outlined.QueryStats
 import androidx.compose.material.icons.outlined.Search
@@ -474,6 +476,7 @@ private fun HomeRoute(
         val data = uiState.data ?: return@ScreenContainer
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(bottom = 16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             item {
@@ -875,7 +878,7 @@ private fun DeckRoute(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 AppCompactActionButton(
-                    icon = Icons.Outlined.Menu,
+                    icon = Icons.Outlined.FilterList,
                     text = "필터",
                     contentDescription = "필터",
                     onClick = { showFilterSheet = true },
@@ -902,7 +905,10 @@ private fun DeckRoute(
             } else if (filteredWords.isEmpty()) {
                 EmptyHint("조건에 맞는 단어가 없어요.")
             } else {
-                LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                LazyColumn(
+                    contentPadding = PaddingValues(bottom = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
                     items(filteredWords) { word ->
                         WordRow(
                             word = word,
@@ -1066,7 +1072,7 @@ private fun AllWordsRoute(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 AppCompactActionButton(
-                    icon = Icons.Outlined.Menu,
+                    icon = Icons.Outlined.FilterList,
                     text = "필터",
                     contentDescription = "필터",
                     onClick = { showFilterSheet = true },
@@ -1077,7 +1083,10 @@ private fun AllWordsRoute(
             } else if (filteredWords.isEmpty()) {
                 EmptyHint("조건에 맞는 단어가 없어요.")
             } else {
-                LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                LazyColumn(
+                    contentPadding = PaddingValues(bottom = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
                     items(filteredWords) { word ->
                         WordRow(
                             word = word,
@@ -1408,11 +1417,6 @@ private fun ExamSetupRoute(
                             style = MaterialTheme.typography.bodyMedium,
                             color = InkSoft,
                         )
-                        AppSecondaryButton(
-                            text = "이어하기",
-                            onClick = { onContinueExam(inProgress.sessionId) },
-                            modifier = Modifier.fillMaxWidth(),
-                        )
                     }
                 }
             }
@@ -1596,7 +1600,9 @@ private fun ExamRoute(
                             }
                         },
                         modifier = Modifier.weight(1f),
-                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 12.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = SecondaryCoral),
+                        border = BorderStroke(1.dp, SecondaryCoral),
+                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 14.dp),
                     ) {
                         Text(
                             text = "틀렸어요",
@@ -1610,7 +1616,11 @@ private fun ExamRoute(
                             }
                         },
                         modifier = Modifier.weight(1f),
-                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 12.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = ExamGreen,
+                            contentColor = Color.White,
+                        ),
+                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 14.dp),
                     ) {
                         Text(
                             text = "맞았어요",
@@ -1668,7 +1678,7 @@ private fun ExamSetupRouteV2(
                         text = if (uiState.isAiDeck) {
                             "누적 오답과 새 단어를 우선 섞어서 원하는 개수만큼 시험을 구성해요."
                         } else {
-                            "출제 방식과 정답 공개값을 고른 뒤 바로 시험을 시작할 수 있어요."
+                            "출제 방식과 정답으로 확인할 항목을 고른 뒤 바로 시험을 시작할 수 있어요."
                         },
                         style = MaterialTheme.typography.bodyMedium,
                         color = InkSoft,
@@ -1697,11 +1707,6 @@ private fun ExamSetupRouteV2(
                             text = "${inProgress.deckName} · ${inProgress.answeredCount} / ${inProgress.totalCount}",
                             style = MaterialTheme.typography.bodyMedium,
                             color = InkSoft,
-                        )
-                        AppSecondaryButton(
-                            text = "이어하기",
-                            onClick = { onContinueExam(inProgress.sessionId) },
-                            modifier = Modifier.fillMaxWidth(),
                         )
                     }
                 }
@@ -1756,7 +1761,7 @@ private fun ExamSetupRouteV2(
                 onCustomInputChanged = viewModel::setCustomWordCountInput,
             )
             SettingGroup(
-                title = "앞면 표시값",
+                title = "문제로 볼 항목",
                 selectedLabel = fieldLabel(uiState.settings.frontField),
                 options = WordField.entries.map { it to fieldLabel(it) },
                 current = uiState.settings.frontField,
@@ -1766,10 +1771,10 @@ private fun ExamSetupRouteV2(
                 selectedFields = uiState.settings.revealFields,
                 onToggle = viewModel::toggleRevealField,
             )
-
+            Spacer(modifier = Modifier.height(16.dp))
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 uiState.inProgressExam?.let { inProgress ->
                     AppSecondaryButton(
@@ -1779,7 +1784,7 @@ private fun ExamSetupRouteV2(
                     )
                 }
                 AppPrimaryButton(
-                    text = if (uiState.inProgressExam == null) "시험 시작" else "새 시험 시작",
+                    text = if (uiState.inProgressExam == null) "시험 시작" else "새로 시작",
                     onClick = {
                         scope.launch {
                             onStartExam(viewModel.startExam())
@@ -1827,12 +1832,41 @@ private fun ExamRouteV2(
             modifier = Modifier.fillMaxSize(),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            Text("${currentIndex + 1} / ${sessionData.words.size}", style = MaterialTheme.typography.titleMedium)
-            Text(
-                "카드를 터치해 정답을 확인하세요.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = InkSoft,
-            )
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        "${currentIndex + 1} / ${sessionData.words.size}",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = InkSoft,
+                    )
+                    val pct = (((currentIndex + 1).toFloat() / sessionData.words.size.toFloat()) * 100).toInt()
+                    Text(
+                        "$pct%",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = InkMuted,
+                    )
+                }
+                LinearProgressIndicator(
+                    progress = { (currentIndex + 1).toFloat() / sessionData.words.size.toFloat() },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(4.dp)
+                        .clip(RoundedCornerShape(2.dp)),
+                    color = ExamGreen,
+                    trackColor = DividerSoft,
+                )
+            }
+            if (!uiState.revealed) {
+                Text(
+                    "카드를 터치해 정답을 확인하세요.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = InkSoft,
+                )
+            }
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
@@ -1898,7 +1932,9 @@ private fun ExamRouteV2(
                             }
                         },
                         modifier = Modifier.weight(1f),
-                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 12.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = SecondaryCoral),
+                        border = BorderStroke(1.dp, SecondaryCoral),
+                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 14.dp),
                     ) {
                         Text(
                             text = "틀렸어요",
@@ -1912,7 +1948,11 @@ private fun ExamRouteV2(
                             }
                         },
                         modifier = Modifier.weight(1f),
-                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 12.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = ExamGreen,
+                            contentColor = Color.White,
+                        ),
+                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 14.dp),
                     ) {
                         Text(
                             text = "맞았어요",
@@ -1932,7 +1972,17 @@ private fun ResultRoute(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     BackHandler(enabled = true) {}
-    ScreenContainer(title = "시험 결과") {
+    ScreenContainer(
+        title = "시험 결과",
+        actions = {
+            IconButton(onClick = onGoHome) {
+                Icon(
+                    imageVector = Icons.Outlined.Home,
+                    contentDescription = "홈으로",
+                )
+            }
+        },
+    ) {
         if (uiState.isLoading || uiState.result == null) {
             LoadingView()
             return@ScreenContainer
@@ -1940,6 +1990,7 @@ private fun ResultRoute(
         val result = uiState.result ?: return@ScreenContainer
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(bottom = 16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             // 성과 요약 카드
@@ -1963,7 +2014,7 @@ private fun ResultRoute(
                         )
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(20.dp),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             // 정답률 크게
@@ -1974,6 +2025,7 @@ private fun ResultRoute(
                                 else -> SecondaryCoral
                             }
                             Column(
+                                modifier = Modifier.width(88.dp),
                                 horizontalAlignment = Alignment.CenterHorizontally,
                                 verticalArrangement = Arrangement.spacedBy(2.dp),
                             ) {
@@ -1997,6 +2049,7 @@ private fun ResultRoute(
                             )
                             // 세부 수치
                             Column(
+                                modifier = Modifier.weight(1f),
                                 verticalArrangement = Arrangement.spacedBy(6.dp),
                             ) {
                                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -2026,7 +2079,7 @@ private fun ResultRoute(
                 item { EmptyHint("이번 세션에서는 모든 단어를 맞혔어요.") }
             } else {
                 items(result.missedWords) { stat ->
-                    StatsWordRow(stat = stat)
+                    StatsWordRow(stat = stat, containerColor = SecondaryCoralSoft)
                 }
             }
             // 인사이트
@@ -2042,8 +2095,11 @@ private fun ResultRoute(
                 item { EmptyHint("아직 누적 통계가 충분하지 않아요.") }
             } else {
                 items(result.topMissedWords) { stat ->
-                    StatsWordRow(stat = stat)
+                    StatsWordRow(stat = stat, containerColor = PrimaryBlueSoft)
                 }
+            }
+            item {
+                Spacer(modifier = Modifier.height(24.dp))
             }
             item {
                 AppPrimaryButton(
@@ -2076,6 +2132,7 @@ private fun SettingsRoute(
 
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(bottom = 16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             item {
@@ -2232,22 +2289,30 @@ private fun ScreenContainer(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(title, style = MaterialTheme.typography.headlineSmall)
             Row(
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                modifier = Modifier.weight(1f),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                actions?.invoke()
                 if (onBack != null) {
-                    AppHeaderIconButton(
-                        onClick = onBack,
-                    ) {
+                    IconButton(onClick = onBack) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
                             contentDescription = "뒤로",
                         )
                     }
                 }
+                Text(
+                    title,
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.SemiBold,
+                )
+            }
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                actions?.invoke()
             }
         }
         content()
@@ -2282,56 +2347,53 @@ private fun DisplayOptionRow(
 ) {
     FlowRow(
         horizontalArrangement = Arrangement.spacedBy(6.dp),
-        verticalArrangement = Arrangement.spacedBy(2.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        InlineOptionCheckbox(
+        DisplayOptionChip(
             label = "품사",
             checked = showPartOfSpeech,
-            onCheckedChange = onShowPartOfSpeechChange,
+            onToggle = onShowPartOfSpeechChange,
         )
-        InlineOptionCheckbox(
+        DisplayOptionChip(
             label = "한글 읽기",
             checked = showReadingKo,
-            onCheckedChange = onShowReadingKoChange,
+            onToggle = onShowReadingKoChange,
         )
-        InlineOptionCheckbox(
+        DisplayOptionChip(
             label = "한글 뜻",
             checked = showMeaningKo,
-            onCheckedChange = onShowMeaningKoChange,
+            onToggle = onShowMeaningKoChange,
         )
-        InlineOptionCheckbox(
+        DisplayOptionChip(
             label = "일본어 뜻",
             checked = showMeaningJa,
-            onCheckedChange = onShowMeaningJaChange,
+            onToggle = onShowMeaningJaChange,
         )
     }
 }
 
 @Composable
-private fun InlineOptionCheckbox(
+private fun DisplayOptionChip(
     label: String,
     checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit,
+    onToggle: (Boolean) -> Unit,
 ) {
-    Row(
-        modifier = Modifier
-            .clip(MaterialTheme.shapes.medium)
-            .clickable { onCheckedChange(!checked) }
-            .padding(horizontal = 1.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(0.dp),
-    ) {
-        Checkbox(
-            checked = checked,
-            onCheckedChange = onCheckedChange,
-            modifier = Modifier.padding(0.dp),
-        )
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelSmall,
-            color = InkSoft,
-        )
-    }
+    FilterChip(
+        selected = checked,
+        onClick = { onToggle(!checked) },
+        label = { Text(label) },
+        leadingIcon = if (checked) {
+            {
+                Icon(
+                    imageVector = Icons.Outlined.Check,
+                    contentDescription = null,
+                    modifier = Modifier.size(16.dp),
+                )
+            }
+        } else {
+            null
+        },
+    )
 }
 
 @Composable
@@ -2432,10 +2494,11 @@ private fun StatsKeyChip(
 @Composable
 private fun StatsWordRow(
     stat: com.mistbottle.jpnwordtrainer.data.model.WordAggregateStat,
+    containerColor: Color = PaperElevated,
 ) {
     Card(
         shape = RoundedCornerShape(10.dp),
-        colors = CardDefaults.cardColors(containerColor = PaperElevated),
+        colors = CardDefaults.cardColors(containerColor = containerColor),
         border = BorderStroke(1.dp, DividerSoft),
     ) {
         Row(
@@ -2639,7 +2702,7 @@ private fun AppFilterButton(
         onClick = onClick,
     ) {
         Icon(
-            imageVector = Icons.Outlined.Menu,
+            imageVector = Icons.Outlined.FilterList,
             contentDescription = "필터",
         )
     }
@@ -2779,8 +2842,10 @@ private fun DeckStatsRoute(
             return@ScreenContainer
         }
         val stats = uiState.stats ?: return@ScreenContainer
+        var showAllWordStats by rememberSaveable { mutableStateOf(false) }
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(bottom = 16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             item {
@@ -2819,9 +2884,21 @@ private fun DeckStatsRoute(
                             modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
                             verticalArrangement = Arrangement.spacedBy(4.dp),
                         ) {
-                            Text(daily.dateLabel, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text(daily.dateLabel, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                                Text(
+                                    "${daily.accuracyPercent}%",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (daily.accuracyPercent >= 80) ExamGreen else SecondaryCoral,
+                                )
+                            }
                             Text(
-                                "시험 ${daily.completedSessionCount}회 · 문제 ${daily.totalQuestionCount}개 · 오답 ${daily.wrongCount}개 · 정답률 ${daily.accuracyPercent}%",
+                                "시험 ${daily.completedSessionCount}회 · 문제 ${daily.totalQuestionCount}개 · 오답 ${daily.wrongCount}개",
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = InkSoft,
                             )
@@ -2842,10 +2919,21 @@ private fun DeckStatsRoute(
                 }
             }
             item {
-                SectionTitle("단어별 집계")
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    SectionTitle("단어별 집계")
+                    TextButton(onClick = { showAllWordStats = !showAllWordStats }) {
+                        Text(if (showAllWordStats) "접기" else "펼치기 (${stats.allWordStats.size}개)")
+                    }
+                }
             }
-            items(stats.allWordStats) { stat ->
-                StatsWordRow(stat = stat)
+            if (showAllWordStats) {
+                items(stats.allWordStats) { stat ->
+                    StatsWordRow(stat = stat)
+                }
             }
         }
     }
@@ -2868,6 +2956,7 @@ private fun DeckDateStatsRoute(
         val stats = uiState.stats ?: return@ScreenContainer
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(bottom = 16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             item {
@@ -3267,7 +3356,12 @@ private fun GlobalStatsRoute(
                 )
             }
             item {
-                Text(stats.rangeLabel, style = MaterialTheme.typography.bodyMedium, color = InkMuted)
+                Text(
+                    stats.rangeLabel,
+                    style = MaterialTheme.typography.labelLarge,
+                    color = PrimaryBlue,
+                    fontWeight = FontWeight.SemiBold,
+                )
             }
             item {
                 FlowRow(
@@ -3355,8 +3449,8 @@ private fun GlobalStatsRoute(
             item {
                 SectionTitle("전체 단어 집계")
             }
-            items(stats.allWordStats) { stat ->
-                StatsWordRow(stat = stat)
+            item {
+                EmptyHint("전체 단어 집계는 추후 별도 화면으로 분리할 예정이에요.")
             }
         }
     }
@@ -4539,7 +4633,7 @@ private fun ExamRevealFieldsGroup(
             verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             Text(
-                text = "정답 공개값",
+                text = "정답으로 확인할 항목",
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.SemiBold,
             )
