@@ -298,6 +298,9 @@ fun WordbookApp(
                     onEdit = { targetWordId ->
                         navController.navigate("word_editor/${deckId ?: -1}?wordId=$targetWordId")
                     },
+                    onOpenDeck = { targetDeckId ->
+                        navController.navigate("deck/$targetDeckId")
+                    },
                     onOpenWord = { targetWordId ->
                         navController.navigate("word/$targetWordId?deckId=${deckId ?: -1}")
                     },
@@ -1176,6 +1179,7 @@ private fun WordDetailRoute(
     deckId: Long?,
     onBack: () -> Unit,
     onEdit: (Long) -> Unit,
+    onOpenDeck: (Long) -> Unit,
     onOpenWord: (Long) -> Unit,
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -1279,7 +1283,7 @@ private fun WordDetailRoute(
                     ) {
                         detail.includedDecks.forEach { deck ->
                             AssistChip(
-                                onClick = { },
+                                onClick = { onOpenDeck(deck.id) },
                                 label = { Text(deck.name) },
                                 colors = androidx.compose.material3.AssistChipDefaults.assistChipColors(
                                     containerColor = PrimaryBlueSoft,
