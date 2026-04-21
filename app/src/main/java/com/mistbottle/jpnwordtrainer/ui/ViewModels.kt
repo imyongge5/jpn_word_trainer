@@ -87,9 +87,8 @@ class DeckDetailViewModel(
                 deck = detail.deck,
                 words = detail.words,
                 wrongWordIds = repository.getWrongWordIds(),
-                builtinUpdateInfo = syncRepository.getBuiltinDeckUpdateInfo(deckId),
-                builtinVersionCatalog = syncRepository.getBuiltinDeckVersionCatalog(deckId),
             )
+            refreshBuiltinUpdateInfo()
             repository.observeDeckWords(deckId).collectLatest { words ->
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,

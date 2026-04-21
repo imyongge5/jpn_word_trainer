@@ -174,28 +174,30 @@ class SyncRepository(
         if (!deck.isBuiltin || deck.stableKey.isNullOrBlank()) return@withContext null
         val installState = deckDao.getDeckInstallState(deckId)
         val currentVersionCode = installState?.currentVersionCode ?: deck.deckVersionCode ?: 1
-        val updatePackage = SyncApiClient(serverUrl, httpClient).getBuiltinDeckUpdatePackage(
-            token = token,
-            stableKey = deck.stableKey,
-            currentVersionCode = currentVersionCode,
-        )
-        upsertDeckInstallState(
-            stableKey = updatePackage.stableKey,
-            deckId = deckId,
-            currentVersionCode = currentVersionCode,
-            latestKnownVersionCode = maxOf(currentVersionCode, updatePackage.targetVersionCode),
-            updateAvailable = updatePackage.updateAvailable,
-            isLegacyVersion = installState?.isLegacyVersion ?: true,
-        )
-        BuiltinDeckUpdateInfo(
-            stableKey = updatePackage.stableKey,
-            name = updatePackage.name,
-            currentVersionCode = currentVersionCode,
-            targetVersionCode = updatePackage.targetVersionCode,
-            targetVersionLabel = updatePackage.targetVersionLabel,
-            changelog = updatePackage.changelog,
-            updateAvailable = updatePackage.updateAvailable,
-        )
+        runCatching {
+            val updatePackage = SyncApiClient(serverUrl, httpClient).getBuiltinDeckUpdatePackage(
+                token = token,
+                stableKey = deck.stableKey,
+                currentVersionCode = currentVersionCode,
+            )
+            upsertDeckInstallState(
+                stableKey = updatePackage.stableKey,
+                deckId = deckId,
+                currentVersionCode = currentVersionCode,
+                latestKnownVersionCode = maxOf(currentVersionCode, updatePackage.targetVersionCode),
+                updateAvailable = updatePackage.updateAvailable,
+                isLegacyVersion = installState?.isLegacyVersion ?: true,
+            )
+            BuiltinDeckUpdateInfo(
+                stableKey = updatePackage.stableKey,
+                name = updatePackage.name,
+                currentVersionCode = currentVersionCode,
+                targetVersionCode = updatePackage.targetVersionCode,
+                targetVersionLabel = updatePackage.targetVersionLabel,
+                changelog = updatePackage.changelog,
+                updateAvailable = updatePackage.updateAvailable,
+            )
+        }.getOrNull()
     }
 
     suspend fun getBuiltinDeckVersionCatalog(deckId: Long): BuiltinDeckVersionCatalog? = withContext(Dispatchers.IO) {
@@ -206,34 +208,36 @@ class SyncRepository(
         if (!deck.isBuiltin || deck.stableKey.isNullOrBlank()) return@withContext null
         val installState = deckDao.getDeckInstallState(deckId)
         val currentVersionCode = installState?.currentVersionCode ?: deck.deckVersionCode ?: 1
-        val versionList = SyncApiClient(serverUrl, httpClient).getBuiltinDeckVersions(
-            token = token,
-            stableKey = deck.stableKey,
-        )
-        upsertDeckInstallState(
-            stableKey = versionList.stableKey,
-            deckId = deckId,
-            currentVersionCode = currentVersionCode,
-            latestKnownVersionCode = versionList.latestVersionCode,
-            updateAvailable = versionList.latestVersionCode > currentVersionCode,
-            isLegacyVersion = installState?.isLegacyVersion ?: true,
-        )
-        BuiltinDeckVersionCatalog(
-            stableKey = versionList.stableKey,
-            name = versionList.name,
-            currentVersionCode = currentVersionCode,
-            latestVersionCode = versionList.latestVersionCode,
-            versions = versionList.versions.map { version ->
-                BuiltinDeckVersionItem(
-                    versionCode = version.versionCode,
-                    versionLabel = version.versionLabel,
-                    changelog = version.changelog,
-                    publishedAt = version.publishedAt,
-                    isLatest = version.isLatest,
-                    isCurrent = version.versionCode == currentVersionCode,
-                )
-            },
-        )
+        runCatching {
+            val versionList = SyncApiClient(serverUrl, httpClient).getBuiltinDeckVersions(
+                token = token,
+                stableKey = deck.stableKey,
+            )
+            upsertDeckInstallState(
+                stableKey = versionList.stableKey,
+                deckId = deckId,
+                currentVersionCode = currentVersionCode,
+                latestKnownVersionCode = versionList.latestVersionCode,
+                updateAvailable = versionList.latestVersionCode > currentVersionCode,
+                isLegacyVersion = installState?.isLegacyVersion ?: true,
+            )
+            BuiltinDeckVersionCatalog(
+                stableKey = versionList.stableKey,
+                name = versionList.name,
+                currentVersionCode = currentVersionCode,
+                latestVersionCode = versionList.latestVersionCode,
+                versions = versionList.versions.map { version ->
+                    BuiltinDeckVersionItem(
+                        versionCode = version.versionCode,
+                        versionLabel = version.versionLabel,
+                        changelog = version.changelog,
+                        publishedAt = version.publishedAt,
+                        isLatest = version.isLatest,
+                        isCurrent = version.versionCode == currentVersionCode,
+                    )
+                },
+            )
+        }.getOrNull()
     }
 
     suspend fun applyBuiltinDeckUpdate(deckId: Long): SyncResult = withContext(Dispatchers.IO) {
